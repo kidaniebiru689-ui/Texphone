@@ -1,0 +1,4474 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Texphone - By Kidane Biru</title>
+  <!-- FontAwesome Icons for Action Buttons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+  <!-- Agora Web SDK NG -->
+  <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.17.0.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: #000000;
+      min-height: 100vh;
+      overflow-x: hidden;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    body.light-mode {
+      background-color: #ffffff;
+      color: #000000;
+    }
+
+    video {
+      background-color: #000000;
+      object-fit: cover;
+    }
+
+    /* ===== SMS NOTIFICATION TOAST (FIXED) ===== */
+    .sms-notification-toast {
+      position: fixed;
+      top: -180px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e293b;
+      color: #ffffff;
+      padding: 14px 20px;
+      border-radius: 14px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      transition: top 0.4s ease;
+      border-left: 4px solid #00C853;
+      max-width: 90%;
+      text-align: left;
+    }
+    .sms-notification-toast.active {
+      top: 30px;
+    }
+
+    /* ===== LOADING / TIMING SPINNER OVERLAY ===== */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      flex-direction: column;
+      gap: 16px;
+      color: #ffffff;
+    }
+    .loading-overlay.active { display: flex; }
+
+    .spinner {
+      width: 52px;
+      height: 52px;
+      border: 5px solid rgba(255, 255, 255, 0.2);
+      border-top-color: #00C853;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    }
+
+    /* ===== SPLASH SCREEN STYLES ===== */
+    .splash-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.5s ease;
+      padding: 24px;
+    }
+
+    .splash-logo-circle {
+      width: 90px;
+      height: 90px;
+      background-color: #00C853;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 15px rgba(0, 200, 83, 0.3);
+    }
+
+    .splash-logo-circle span {
+      color: #ffffff;
+      font-size: 50px;
+      font-weight: 800;
+    }
+
+    .splash-title {
+      font-size: 36px;
+      font-weight: 800;
+      color: #00C853;
+      margin-bottom: 24px;
+    }
+
+    .splash-progress-bar-container {
+      width: 240px;
+      height: 8px;
+      background-color: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    .splash-progress-bar {
+      width: 0%;
+      height: 100%;
+      background-color: #00C853;
+      transition: width 0.1s linear;
+    }
+
+    .splash-progress-text {
+      font-size: 14px;
+      font-weight: 700;
+      color: #00C853;
+    }
+
+    .splash-no-internet {
+      font-size: 14px;
+      font-weight: 700;
+      color: #ef4444;
+      margin-top: 14px;
+      text-align: center;
+      display: none;
+    }
+
+    /* ===== AUTH / SIGN UP MODAL ===== */
+    .auth-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 5000;
+      padding: 16px;
+    }
+    .auth-overlay.active { display: flex; }
+
+    .auth-card {
+      background: #ffffff;
+      width: 100%;
+      max-width: 400px;
+      border-radius: 24px;
+      padding: 32px 28px;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      align-items: center;
+      border: 1px solid rgba(0, 200, 83, 0.2);
+      animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes modalPop {
+      0% { transform: scale(0.9); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .auth-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: #00C853;
+      text-align: center;
+      letter-spacing: -0.5px;
+    }
+
+    .auth-subtitle {
+      font-size: 13px;
+      color: #64748b;
+      text-align: center;
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+
+    .auth-input {
+      width: 100%;
+      padding: 15px 18px;
+      border: 2px solid #e2e8f0;
+      border-radius: 14px;
+      font-size: 15px;
+      outline: none;
+      color: #0f172a;
+      background: #f8fafc;
+      transition: all 0.3s ease;
+    }
+
+    .auth-input:focus {
+      border-color: #00C853;
+      background: #ffffff;
+      box-shadow: 0 0 0 4px rgba(0, 200, 83, 0.12);
+    }
+
+    .auth-submit-btn {
+      width: 100%;
+      background: linear-gradient(135deg, #00C853, #00963f);
+      color: white;
+      border: none;
+      padding: 15px;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      box-shadow: 0 4px 12px rgba(0, 200, 83, 0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .auth-submit-btn:hover { transform: translateY(-1px); }
+
+    /* ===== STANDALONE OTP VERIFICATION PAGE ===== */
+    .otp-page {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: #ffffff;
+      z-index: 6000;
+      display: none;
+      flex-direction: column;
+      color: #000000;
+    }
+    .otp-page.active { display: flex; }
+
+    .otp-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      max-width: 400px;
+      margin: 0 auto;
+      width: 100%;
+      gap: 16px;
+      text-align: center;
+    }
+
+    .otp-icon-circle {
+      width: 80px;
+      height: 80px;
+      background-color: #e8f5e9;
+      color: #00C853;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      margin-bottom: 8px;
+    }
+
+    .otp-heading { font-size: 24px; font-weight: 800; color: #111; }
+    .otp-subtext { font-size: 14px; color: #64748b; line-height: 1.5; }
+
+    .otp-input-field {
+      width: 100%;
+      max-width: 240px;
+      padding: 14px;
+      font-size: 24px;
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: 8px;
+      border: 2px solid #cbd5e1;
+      border-radius: 14px;
+      outline: none;
+      color: #00C853;
+    }
+
+    /* ===== HEADER SECTION ===== */
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: transparent !important;
+      z-index: 2400;
+      pointer-events: none;
+    }
+    .header > * { pointer-events: auto; }
+
+    .hamburger-btn {
+      background: transparent;
+      border: none;
+      width: 40px;
+      height: 40px;
+      font-size: 26px;
+      color: #00C853;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header-top-actions { display: flex; align-items: center; gap: 32px; }
+
+    .top-action-item {
+      position: relative;
+      background: transparent;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .top-action-item i {
+      font-size: 21px;
+      color: #00C853;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    }
+    .top-action-item.live-item i { color: #ef4444; animation: pulseLive 1.5s infinite; }
+
+    @keyframes pulseLive {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.15); opacity: 0.7; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .top-profile-box {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      border: 2px solid #00C853;
+      overflow: hidden;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .top-profile-box img { width: 100%; height: 100%; object-fit: cover; }
+    .top-profile-box i { color: #00C853; font-size: 16px; }
+
+    .icon-post { transform: rotate(45deg); display: inline-block; }
+
+    .list-profile-rect {
+      width: 44px;
+      height: 38px;
+      border-radius: 10px;
+      border: 2px solid #00C853;
+      overflow: hidden;
+      background-color: #e8f5e9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .list-profile-rect img { width: 100%; height: 100%; object-fit: cover; }
+    .list-profile-rect i { color: #00C853; font-size: 18px; }
+
+    .chat-btn-wrapper { position: relative; display: inline-block; }
+    .chat-list-badge {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background-color: #ef4444;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 12px;
+      display: none;
+      border: 2px solid #ffffff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      z-index: 5;
+    }
+    .chat-list-badge.active { display: inline-block; }
+
+    /* ===== BOTTOM NAVIGATION BAR ===== */
+    .bottom-nav-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 10px 16px;
+      z-index: 2400;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+    }
+
+    .bottom-nav-item {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      flex: 1;
+    }
+    .bottom-nav-icon-box { display: flex; align-items: center; justify-content: center; color: #00C853; }
+    .bottom-nav-item i { font-size: 22px; color: #00C853; }
+    .bottom-nav-item span { font-size: 12px; font-weight: 700; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
+
+    .action-badge {
+      position: absolute;
+      top: -2px;
+      right: calc(50% - 18px);
+      background-color: #ef4444;
+      color: #ffffff;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 10px;
+      display: none;
+    }
+    .action-badge.active { display: inline-block; }
+
+    .feed-container { display: flex; flex-direction: column; width: 100%; }
+
+    .post-card {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background-color: #000000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .post-media { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .more-options-btn {
+      position: absolute;
+      top: 70px;
+      right: 16px;
+      background: transparent;
+      color: white;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10;
+      font-size: 22px;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+    }
+
+    .post-left-profile {
+      position: absolute;
+      left: 12px;
+      bottom: 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      z-index: 15;
+    }
+
+    .poster-name-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #ffffff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+      background: rgba(0, 0, 0, 0.5);
+      padding: 3px 8px;
+      border-radius: 6px;
+      max-width: 110px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+      border: 1px solid rgba(0,200,83,0.4);
+    }
+
+    .post-right-actions {
+      position: absolute;
+      right: 12px;
+      bottom: 80px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 15;
+    }
+
+    .horizontal-expand-container { display: flex; align-items: center; gap: 12px; }
+
+    .right-action-item {
+      position: relative;
+      width: 46px;
+      height: 46px;
+      min-width: 46px;
+      min-height: 46px;
+      border-radius: 50%;
+      border: 2px solid #00C853;
+      box-shadow: 0px 4px 10px rgba(0, 200, 83, 0.4), inset 0px 0px 4px rgba(0,0,0,0.3);
+      background-color: #1a1a1a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    .right-action-item:active { transform: scale(0.85); }
+    .right-action-item i { font-size: 16px; }
+    .right-action-item.liked span { color: #ef4444; }
+    .right-action-item.reposted i { color: #00C853; }
+
+    .action-count { font-size: 9px; font-weight: 700; color: #ffffff; margin-top: 2px; }
+
+    .user-info-box {
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      min-height: 44px;
+      border-radius: 12px;
+      border: 2px solid #00C853;
+      box-shadow: 0px 4px 10px rgba(0, 200, 83, 0.4);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #1a1a1a;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .user-info-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .user-info-box i { color: #00C853; font-size: 20px; }
+
+    .post-options-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.4);
+      display: none;
+      z-index: 5000;
+    }
+    .post-options-overlay.active { display: flex; align-items: center; justify-content: center; }
+
+    .post-options-dropdown {
+      background: #1a1a1a;
+      border: 2px solid #00C853;
+      padding: 16px;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 240px;
+      align-items: center;
+    }
+
+    .post-option-item {
+      background: #262626;
+      border: 1px solid #333;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 10px;
+      width: 100%;
+      text-align: center;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    .post-option-item:hover { background: #00C853; color: #000; }
+
+    .menu-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      display: none;
+      z-index: 2999;
+    }
+    .menu-overlay.active { display: block; }
+
+    .sidebar-menu {
+      position: fixed;
+      top: 0;
+      left: -280px;
+      width: 280px;
+      height: 100%;
+      background-color: #ffffff;
+      box-shadow: 4px 0 15px rgba(0, 0, 0, 0.3);
+      z-index: 3000;
+      transition: left 0.3s ease;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-menu.active { left: 0; }
+
+    .sidebar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      border-bottom: 1px solid #edf2f7;
+    }
+    .sidebar-title { font-size: 20px; font-weight: 800; color: #00C853; }
+    .close-menu-btn { background: none; border: none; font-size: 22px; color: #333; cursor: pointer; }
+
+    .sidebar-content { flex: 1; overflow-y: auto; padding: 10px 0; }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 20px;
+      gap: 16px;
+      text-decoration: none;
+      color: #111111;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    .menu-item:hover { background-color: #f4f6f8; color: #00C853; }
+    .menu-item i { font-size: 18px; color: #00C853; width: 24px; text-align: center; }
+    .menu-item.logout-item i, .menu-item.logout-item span { color: #ef4444; }
+
+    /* ===== PAGES STYLES ===== */
+    .connect-page, .text-page, .chat-page, .search-page, .discover-page, .profile-page, .gift-shop-page, .coin-wallet-page, .generic-page, .live-hub-page {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: #ffffff;
+      z-index: 3500;
+      display: none;
+      flex-direction: column;
+      color: #000;
+    }
+    .connect-page.active, .text-page.active, .chat-page.active, .search-page.active, .discover-page.active, .profile-page.active, .gift-shop-page.active, .coin-wallet-page.active, .generic-page.active, .live-hub-page.active { display: flex; }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #ffffff;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .page-title { font-size: 18px; font-weight: 800; color: #111111; }
+    .back-btn { background: none; border: none; font-size: 20px; color: #333; cursor: pointer; }
+
+    .list-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .user-connect-item, .friend-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8fafc;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+    }
+    .user-connect-info { display: flex; align-items: center; gap: 12px; }
+    .user-connect-name { font-weight: 700; font-size: 15px; color: #111; }
+    .connect-action-group { display: flex; gap: 8px; align-items: center; }
+
+    .btn-connect {
+      background-color: #00C853;
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .btn-cancel { background-color: #ef4444; color: white; border: none; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+    .btn-accept { background-color: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+    /* ===== MODERN START LIVE CIRCULAR/PILL BUTTON (RED) ===== */
+    .modern-start-live-btn {
+      background: #ef4444;
+      color: #ffffff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+      transition: transform 0.2s ease;
+    }
+    .modern-start-live-btn:active { transform: scale(0.92); }
+
+    /* ===== CHAT PAGE SPECIFIC STYLES ===== */
+    .chat-messages-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      padding-bottom: 100px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: #efeae2;
+    }
+
+    .chat-bubble {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 14px;
+      position: relative;
+      word-break: break-word;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+      cursor: pointer;
+      user-select: none;
+    }
+    .chat-bubble.sent { background-color: #dcf8c6; align-self: flex-end; border-bottom-right-radius: 4px; color: #000; }
+    .chat-bubble.received { background-color: #ffffff; align-self: flex-start; border-bottom-left-radius: 4px; color: #000; border: 1px solid #e2e8f0; }
+
+    .chat-bubble-media {
+      width: 100%;
+      max-width: 100%;
+      max-height: 350px;
+      border-radius: 10px;
+      object-fit: contain;
+      margin-top: 4px;
+      align-self: center;
+      cursor: pointer;
+      background: #000;
+    }
+
+    .chat-time-row { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 2px; }
+    .chat-time { font-size: 10px; color: #666; }
+
+    .chat-input-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      padding: 10px 16px;
+      background: #f0f0f0;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 3600;
+      transition: bottom 0.2s ease;
+    }
+
+    .chat-input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 24px;
+      outline: none;
+      font-size: 15px;
+      background: #fff;
+      color: #000;
+    }
+
+    .chat-icon-btn, .chat-send-btn {
+      background: none;
+      border: none;
+      font-size: 20px;
+      color: #00C853;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .chat-send-btn { background: #00C853; color: white; width: 42px; height: 42px; border-radius: 50%; font-size: 16px; }
+
+    .search-results-grid, .discover-grid, .user-posts-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      padding: 4px;
+      background: #f1f5f9;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .search-grid-item, .discover-grid-item, .grid-post-item {
+      position: relative;
+      width: 100%;
+      padding-top: 100%;
+      background: #000;
+      overflow: hidden;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .search-grid-media, .discover-grid-media, .grid-post-media {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* ===== PROFILE PAGE STYLES ===== */
+    .profile-cover-section {
+      width: 100%;
+      height: 140px;
+      background-color: #e2e8f0;
+      position: relative;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .profile-info-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+      background-color: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      margin-top: -40px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .profile-rect-box {
+      width: 90px;
+      height: 90px;
+      border-radius: 16px;
+      border: 3px solid #00C853;
+      box-shadow: 0 4px 15px rgba(0, 200, 83, 0.25);
+      overflow: hidden;
+      background-color: #e8f5e9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .profile-rect-box img { width: 100%; height: 100%; object-fit: cover; }
+    .profile-rect-box i { font-size: 35px; color: #00C853; }
+
+    .user-details { margin-top: 10px; text-align: center; }
+    .user-details-name { font-size: 18px; font-weight: 800; color: #111111; }
+    .user-details-phone { font-size: 13px; font-weight: 600; color: #64748b; margin-top: 2px; }
+    .user-details-bio { font-size: 13px; color: #334155; margin-top: 4px; font-style: italic; }
+
+    .profile-wallet-section {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background-color: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .profile-wallet-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      cursor: pointer;
+    }
+    .profile-wallet-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+    .profile-wallet-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .profile-wallet-title { font-size: 15px; font-weight: 800; color: #111111; }
+    .profile-wallet-sub { font-size: 12px; font-weight: 600; color: #64748b; }
+
+    .profile-actions-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .batch-btn-group { display: flex; gap: 8px; }
+    .batch-btn { padding: 6px 12px; border-radius: 8px; border: none; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; color: white; }
+    .batch-connect { background-color: #00C853; }
+    .batch-download { background-color: #3b82f6; }
+    .batch-delete { background-color: #ef4444; }
+
+    .profile-video-fullscreen-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: #000000;
+      z-index: 4000;
+      display: none;
+      flex-direction: column;
+    }
+    .profile-video-fullscreen-modal.active { display: flex; }
+
+    .gift-grid-container {
+      padding: 20px 16px;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .token-card {
+      background-color: #fffdf5;
+      border: 2px solid #f2b705;
+      border-radius: 16px;
+      padding: 16px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+    }
+    .token-amount { display: flex; align-items: center; gap: 6px; font-size: 18px; font-weight: 800; color: #d97706; }
+    .birr-amount { font-size: 14px; font-weight: 700; color: #d97706; }
+
+    .purchase-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 4500;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .purchase-modal.active { display: flex; }
+
+    .purchase-form-card {
+      background-color: #ffffff;
+      width: 100%;
+      max-width: 360px;
+      border-radius: 20px;
+      padding: 18px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .form-input, .form-select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 13px;
+      outline: none;
+      color: #000;
+    }
+
+    .pay-submit-btn { width: 100%; background-color: #00C853; color: white; border: none; padding: 10px; border-radius: 14px; font-size: 14px; font-weight: 700; cursor: pointer; }
+    .cancel-btn { width: 100%; background-color: #ef4444; color: white; border: none; padding: 10px; border-radius: 14px; font-size: 14px; font-weight: 700; cursor: pointer; }
+
+    .wallet-body { padding: 20px 16px; display: flex; flex-direction: column; gap: 20px; flex: 1; overflow-y: auto; }
+    .balance-card { background-color: #fffdf5; border: 2px solid #f2b705; border-radius: 16px; padding: 20px; text-align: center; }
+    .balance-val { font-size: 28px; font-weight: 800; color: #d97706; display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; }
+
+    /* ===== COMMENTS SECTION & MODERN LIKE/REPLY BUTTONS ===== */
+    .comments-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: #ffffff;
+      border-radius: 0;
+      box-shadow: none;
+      z-index: 3800;
+      display: none;
+      flex-direction: column;
+      color: #000;
+    }
+    .comments-modal.active { display: flex; }
+
+    .comments-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 18px;
+      border-bottom: 1px solid #e2e8f0;
+      font-weight: 800;
+      font-size: 18px;
+      background: #ffffff;
+    }
+
+    .top-gifters-bar {
+      display: flex;
+      gap: 12px;
+      padding: 10px 16px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      overflow-x: auto;
+      white-space: nowrap;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .top-gifter-item { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; min-width: 50px; }
+    .top-gifter-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #d97706; overflow: hidden; background: #fffdf5; display: flex; align-items: center; justify-content: center; }
+    .top-gifter-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .top-gifter-name { font-size: 11px; font-weight: 700; color: #334155; max-width: 60px; overflow: hidden; text-overflow: ellipsis; }
+
+    .comments-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-bottom: 110px;
+    }
+
+    .comment-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: #f8fafc;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid #e2e8f0;
+      user-select: none;
+      cursor: pointer;
+    }
+    .comment-header-row { display: flex; align-items: center; justify-content: space-between; }
+    .comment-user-info { display: flex; align-items: center; gap: 10px; }
+    .comment-number-badge { background: #00C853; color: white; font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 10px; }
+    .comment-avatar { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #00C853; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #e8f5e9; cursor: pointer; }
+    .comment-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .comment-username { font-weight: 800; font-size: 13px; color: #111; cursor: pointer; }
+    .comment-text { font-size: 14px; color: #333; padding-left: 42px; }
+
+    .comment-actions-bar { display: flex; justify-content: flex-start; gap: 12px; align-items: center; margin-top: 8px; padding-left: 42px; padding-right: 10px; }
+    .comment-action-btn {
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 12px;
+      color: #475569;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      transition: all 0.25s ease;
+    }
+    .comment-action-btn:hover { background: #e2e8f0; }
+    .comment-action-btn.liked { background: #fee2e2; border-color: #fca5a5; color: #ef4444; }
+    .comment-action-btn.reply-btn { background: #e8f5e9; border-color: #a7f3d0; color: #00C853; }
+
+    .comment-replies-wrapper { margin-top: 6px; padding-left: 42px; }
+    .replies-toggle-btn { background: none; border: none; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #00C853; cursor: pointer; padding: 4px 0; }
+    .replies-toggle-avatars { width: 22px; height: 22px; border-radius: 50%; overflow: hidden; border: 1px solid #00C853; display: flex; align-items: center; justify-content: center; background: #e8f5e9; }
+    .replies-toggle-avatars img { width: 100%; height: 100%; object-fit: cover; }
+    .comment-replies-container { display: none; flex-direction: column; gap: 8px; margin-top: 8px; padding-left: 12px; border-left: 2px solid #00C853; }
+    .reply-item { display: flex; flex-direction: column; gap: 4px; background: #f1f5f9; padding: 8px 10px; border-radius: 10px; border: 1px solid #e2e8f0; }
+
+    .active-reply-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 12px;
+      background: #e8f5e9;
+      border-top: 1px solid #00C853;
+      font-size: 12px;
+      font-weight: 700;
+      color: #00C853;
+    }
+    .active-reply-banner.active { display: flex; }
+
+    .comment-input-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: #ffffff;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      z-index: 3900;
+    }
+
+    .comment-input-row { padding: 10px 16px; display: flex; align-items: center; gap: 10px; }
+    .comment-input { flex: 1; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 20px; outline: none; font-size: 14px; color: #000; }
+    .gift-picker-btn { background: none; border: none; font-size: 22px; color: #ff9500; cursor: pointer; }
+    .send-comment-btn { background: #00C853; color: white; border: none; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+    .gift-popup {
+      position: absolute;
+      bottom: 65px;
+      right: 16px;
+      left: 16px;
+      background: #ffffff;
+      border: 2px solid #00C853;
+      border-radius: 16px;
+      padding: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+      display: none;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      z-index: 4000;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+    .gift-popup.active { display: grid; }
+
+    .gift-option { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; cursor: pointer; }
+    .gift-option.selected { background: #e8f5e9; border-color: #00C853; }
+
+    /* ===== AGORA LIVE STREAMING CSS STYLES ===== */
+    .live-studio-page {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #000000;
+      z-index: 7000;
+      display: none;
+      flex-direction: column;
+      color: #ffffff;
+    }
+    .live-studio-page.active { display: flex; }
+
+    .live-video-container {
+      position: relative;
+      width: 100%;
+      flex: 1;
+      background: #000000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .agora-player-box {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      object-fit: cover;
+    }
+
+    .live-top-overlay {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .live-top-overlay > * { pointer-events: auto; }
+
+    .live-badge-pill {
+      background: rgba(239, 68, 68, 0.9);
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+    }
+
+    .live-viewers-pill {
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .live-feed-comments {
+      position: absolute;
+      bottom: 70px;
+      left: 16px;
+      right: 80px;
+      max-height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 10;
+      pointer-events: none;
+      padding-right: 10px;
+    }
+    .live-comment-bubble {
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      padding: 6px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      max-width: 100%;
+      word-break: break-word;
+      pointer-events: auto;
+      border-left: 3px solid #00C853;
+    }
+    .live-comment-user { font-weight: 800; color: #00C853; margin-right: 6px; }
+
+    .live-right-actions {
+      position: absolute;
+      right: 16px;
+      bottom: 75px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .live-action-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      border: 2px solid #00C853;
+      color: white;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      transition: transform 0.2s;
+    }
+    .live-action-btn:active { transform: scale(0.9); }
+    .live-action-btn.liked { background: #ef4444; border-color: #ef4444; }
+
+    .live-bottom-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      padding: 10px 16px;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 15;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      transition: bottom 0.2s ease;
+    }
+
+    .live-chat-input {
+      flex: 1;
+      padding: 10px 16px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 24px;
+      color: white;
+      font-size: 14px;
+      outline: none;
+      backdrop-filter: blur(4px);
+    }
+    .live-chat-input::placeholder { color: rgba(255, 255, 255, 0.7); }
+
+    .live-send-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #00C853;
+      color: white;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    /* Live Token Gift Popup Grid & Animations */
+    .live-gift-popup {
+      position: absolute;
+      bottom: 60px;
+      left: 12px;
+      right: 12px;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(8px);
+      border: 2px solid #00C853;
+      border-radius: 16px;
+      padding: 12px;
+      display: none;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      z-index: 20;
+      max-height: 250px;
+      overflow-y: auto;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    .live-gift-popup.active { display: grid; }
+
+    @keyframes bounceEmoji {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px) scale(1.15); }
+    }
+    .animated-emoji {
+      display: inline-block;
+      animation: bounceEmoji 1.2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== LOADING / TIMING SPINNER OVERLAY ===== -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">Loading...</div>
+  </div>
+
+  <!-- ===== SPLASH SCREEN ===== -->
+  <div class="splash-screen" id="splashScreen">
+    <div class="splash-logo-circle">
+      <span>T</span>
+    </div>
+    <div class="splash-title">Texphone</div>
+    <div class="splash-progress-bar-container">
+      <div class="splash-progress-bar" id="splashProgressBar"></div>
+    </div>
+    <div class="splash-progress-text" id="splashProgressText">0%</div>
+    <div class="splash-no-internet" id="splashNoInternet">No internet connection check your internet connection</div>
+  </div>
+
+  <!-- ===== SIGN UP / LOGIN MODAL ===== -->
+  <div class="auth-overlay" id="authOverlay">
+    <div class="auth-card">
+      <div class="auth-title">Texphone Sign Up</div>
+      <div class="auth-subtitle">Fill in your details to receive 4-Digit SIM/SMS OTP</div>
+      <input type="text" id="regUserName" class="auth-input" placeholder="User Name" required>
+      <input type="tel" id="regPhone" class="auth-input" placeholder="Phone Number" required>
+      <input type="password" id="regPassword" class="auth-input" placeholder="Password" required>
+      <button class="auth-submit-btn" onclick="initiateRegistration()">Sign Up & Send SMS OTP</button>
+    </div>
+  </div>
+
+  <!-- ===== STANDALONE OTP VERIFICATION PAGE ===== -->
+  <div class="otp-page" id="otpVerificationPage">
+    <div class="page-header">
+      <button class="back-btn" onclick="backToAuthFromOtp()"><i class="fa-solid fa-arrow-left"></i></button>
+      <div class="page-title">SIM/SMS OTP Verification</div>
+    </div>
+    <div class="otp-container">
+      <div class="otp-icon-circle">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <div class="otp-heading">Enter 4-Digit SIM OTP</div>
+      <div class="otp-subtext" id="otpSubTextLabel">Verification code sent via SMS to your phone number.</div>
+      <input type="text" id="otpCodeInput" class="otp-input-field" maxlength="4" autocomplete="one-time-code" placeholder="----">
+      <button class="auth-submit-btn" onclick="verifyOtpCode()">Verify & Login</button>
+      <button class="cancel-btn" onclick="resendOtpCode()" style="background:none; color:#00C853; margin-top:4px;">Resend SMS OTP Code</button>
+    </div>
+  </div>
+
+  <!-- ===== LIVE HUB PAGE (VIEWERS & START LIVE BUTTON) ===== -->
+  <div class="live-hub-page" id="liveHubPage">
+    <div class="page-header" style="background: #000; border-bottom: 1px solid #222; color: #fff;">
+      <button class="back-btn" style="color:#fff;" onclick="closeLiveHubPage()"><i class="fa-solid fa-arrow-left"></i></button>
+      <div style="background: #00C853; color: #fff; padding: 6px 16px; border-radius: 50px; font-weight: 800; font-size: 14px;">Texphone live</div>
+      <button class="modern-start-live-btn" onclick="openStartLiveSetup()">
+        <i class="fa-solid fa-video"></i> Start Live
+      </button>
+    </div>
+    <div class="list-container" id="liveHubStreamsContainer" style="background: #000; color: #fff;"></div>
+  </div>
+
+  <!-- ===== AGORA LIVE STUDIO PAGE (HOST & VIEWER) ===== -->
+  <div class="live-studio-page" id="liveStudioPage">
+    <div class="live-video-container">
+      <div id="agoraPlayer" class="agora-player-box"></div>
+
+      <div class="live-top-overlay">
+        <div class="live-badge-pill">
+          <i class="fa-solid fa-circle-dot" style="color: white; font-size: 10px;"></i>
+          <span id="liveBadgeLabel">LIVE</span>
+        </div>
+        <div class="live-viewers-pill" onclick="openLiveViewersModal()">
+          <i class="fa-solid fa-user-group"></i>
+          <span id="liveViewerCount">1</span>
+        </div>
+      </div>
+
+      <div class="live-feed-comments" id="liveFeedCommentsContainer"></div>
+
+      <div class="live-right-actions">
+        <!-- Host Actions -->
+        <button class="live-action-btn host-only-control" onclick="toggleHostMic()" title="Mic" id="hostMicBtn"><i class="fa-solid fa-microphone"></i></button>
+        <button class="live-action-btn host-only-control" onclick="toggleHostCamera()" title="Camera" id="hostCamBtn"><i class="fa-solid fa-video"></i></button>
+        <button class="live-action-btn host-only-control" onclick="switchHostCamera()" title="Switch Camera"><i class="fa-solid fa-rotate"></i></button>
+        <button class="live-action-btn host-only-control" onclick="openLiveManageModal()" title="Manage"><i class="fa-solid fa-shield-halved"></i></button>
+        
+        <!-- General Actions -->
+        <button class="live-action-btn" onclick="sendLiveLike()" title="Like" id="liveLikeBtn"><i class="fa-solid fa-heart"></i></button>
+        <button class="live-action-btn" onclick="shareLiveStream()" title="Share"><i class="fa-solid fa-share"></i></button>
+        <button class="live-action-btn viewer-only-control" onclick="followLiveHost()" title="Follow"><i class="fa-solid fa-user-plus"></i></button>
+        
+        <!-- End / Leave -->
+        <button class="live-action-btn host-only-control" onclick="endLiveStream()" title="End Live" style="background: #ef4444; border-color: #ef4444;"><i class="fa-solid fa-square"></i></button>
+        <button class="live-action-btn viewer-only-control" onclick="leaveLiveStream()" title="Leave" style="background: #ef4444; border-color: #ef4444;"><i class="fa-solid fa-right-from-bracket"></i></button>
+      </div>
+
+      <!-- LIVE TOKEN GIFT POPUP -->
+      <div class="live-gift-popup" id="liveGiftPopup">
+        <div class="gift-option" style="background:#1e293b; border-color:#334155; color:#fff;" onclick="sendLiveTokenGift('Rose', '🌹', 5)">
+          <span style="font-size: 22px;" class="animated-emoji">🌹</span>
+          <span style="font-size: 10px; font-weight: 700; color:#cbd5e1;">5 Token</span>
+        </div>
+        <div class="gift-option" style="background:#1e293b; border-color:#334155; color:#fff;" onclick="sendLiveTokenGift('Crown', '👑', 10)">
+          <span style="font-size: 22px;" class="animated-emoji">👑</span>
+          <span style="font-size: 10px; font-weight: 700; color:#cbd5e1;">10 Token</span>
+        </div>
+        <div class="gift-option" style="background:#1e293b; border-color:#334155; color:#fff;" onclick="sendLiveTokenGift('Diamond', '💎', 25)">
+          <span style="font-size: 22px;" class="animated-emoji">💎</span>
+          <span style="font-size: 10px; font-weight: 700; color:#cbd5e1;">25 Token</span>
+        </div>
+        <div class="gift-option" style="background:#1e293b; border-color:#334155; color:#fff;" onclick="sendLiveTokenGift('Adey Abeba', '🌻', 50)">
+          <span style="font-size: 22px;" class="animated-emoji">🌻</span>
+          <span style="font-size: 10px; font-weight: 700; color:#cbd5e1;">50 Token</span>
+        </div>
+        <div class="gift-option" style="background:#1e293b; border-color:#334155; color:#fff;" onclick="sendLiveTokenGift('Heart', '💖', 100)">
+          <span style="font-size: 22px;" class="animated-emoji">💖</span>
+          <span style="font-size: 10px; font-weight: 700; color:#cbd5e1;">100 Token</span>
+        </div>
+        <div class="gift-option" style="background:#1e293b; border-color:#334155; color:#fff;" onclick="sendLiveTokenGift('Car', '🚗', 200)">
+          <span style="font-size: 22px;" class="animated-emoji">🚗</span>
+          <span style="font-size: 10px; font-weight: 700; color:#cbd5e1;">200 Token</span>
+        </div>
+        <div class="gift-option" style="background:#1e293b; border-color:#334155; color:#fff;" onclick="sendLiveTokenGift('Castle', '🏰', 500)">
+          <span style="font-size: 22px;" class="animated-emoji">🏰</span>
+          <span style="font-size: 10px; font-weight: 700; color:#cbd5e1;">500 Token</span>
+        </div>
+        <div class="gift-option" style="background:#1e293b; border-color:#334155; color:#fff;" onclick="sendLiveTokenGift('Trophy', '🏆', 1000)">
+          <span style="font-size: 22px;" class="animated-emoji">🏆</span>
+          <span style="font-size: 10px; font-weight: 700; color:#cbd5e1;">1000 Token</span>
+        </div>
+      </div>
+
+      <div class="live-bottom-bar" id="liveBottomBar">
+        <button class="gift-picker-btn" onclick="toggleLiveGiftPopup()" style="color:#ff9500; font-size:22px; background:none; border:none; cursor:pointer;" title="Send Gift"><i class="fa-solid fa-gift"></i></button>
+        <input type="text" id="liveCommentInput" class="live-chat-input" placeholder="Say something or send gift...">
+        <button class="live-send-btn" onclick="sendLiveComment()"><i class="fa-solid fa-arrow-right"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE VIEWERS LIST MODAL -->
+  <div class="purchase-modal" id="liveViewersModal">
+    <div class="purchase-form-card" style="max-width: 360px;">
+      <div style="font-size: 17px; font-weight: 800; color: #111;">Live Viewers</div>
+      <div id="liveViewersListContainer" style="width: 100%; max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin: 10px 0;"></div>
+      <button class="cancel-btn" onclick="closeLiveViewersModal()">Close</button>
+    </div>
+  </div>
+
+  <!-- LIVE MANAGE MODAL (HOST) -->
+  <div class="purchase-modal" id="liveManageModal">
+    <div class="purchase-form-card" style="max-width: 360px;">
+      <div style="font-size: 17px; font-weight: 800; color: #111;">Manage Live Stream</div>
+      <div style="font-size: 13px; color: #64748b; text-align: center;">Moderation controls for host</div>
+      <button class="pay-submit-btn" onclick="alert('Comments mode: Public enabled')">Toggle Comments Mode</button>
+      <button class="pay-submit-btn" style="background:#ef4444;" onclick="alert('Stream locked for new viewers')">Lock Stream</button>
+      <button class="cancel-btn" onclick="closeLiveManageModal()">Close</button>
+    </div>
+  </div>
+
+  <input type="file" id="mediaPicker" accept="video/*,image/*" style="display: none;" onchange="handleFileSelection(event)">
+  <input type="file" id="chatPhotoPicker" accept="image/*" style="display: none;" onchange="handleChatPhotoSelection(event)">
+  <input type="file" id="chatVideoPicker" accept="video/*" style="display: none;" onchange="handleChatVideoSelection(event)">
+  <input type="file" id="profilePicker" accept="image/*" style="display: none;" onchange="handleProfileImageSelection(event)">
+  <input type="file" id="coverPicker" accept="image/*" style="display: none;" onchange="handleCoverSelection(event)">
+
+  <div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"></div>
+
+  <!-- FULL-SCREEN PROFILE & CHAT MEDIA MODAL -->
+  <div class="profile-video-fullscreen-modal" id="profileVideoModal">
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: rgba(0, 0, 0, 0.6); position: absolute; top: 0; left: 0; width: 100%; z-index: 10;">
+      <button class="back-btn" style="color: #fff;" onclick="closeProfileVideoModal()">
+        <i class="fa-solid fa-arrow-left"></i>
+      </button>
+      <a id="downloadMediaBtn" href="#" download target="_blank" style="color: #fff; font-size: 20px; text-decoration: none;"><i class="fa-solid fa-download"></i></a>
+    </div>
+    <div id="profileVideoContainer" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #000;"></div>
+  </div>
+
+  <!-- CHAT MESSAGE ACTIONS MODAL -->
+  <div class="post-options-overlay" id="chatActionModal" onclick="closeChatActionModal()">
+    <div class="post-options-dropdown" onclick="event.stopPropagation()">
+      <button class="post-option-item" id="chatEditOptionBtn" onclick="editSelectedChatMessage()">Edit Message</button>
+      <button class="post-option-item" id="chatDeleteOptionBtn" onclick="deleteSelectedChatMessage()">Delete Message</button>
+      <button class="post-option-item" id="chatBlockOptionBtn" onclick="blockUserFromChat()" style="color: #ef4444;">Block User</button>
+      <button class="post-option-item" onclick="closeChatActionModal()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- COMMENT ACTIONS MODAL -->
+  <div class="post-options-overlay" id="commentActionModal" onclick="closeCommentActionModal()">
+    <div class="post-options-dropdown" onclick="event.stopPropagation()">
+      <button class="post-option-item" id="commentEditOptionBtn" onclick="editSelectedComment()">Edit Comment</button>
+      <button class="post-option-item" id="commentDeleteOptionBtn" onclick="deleteSelectedComment()" style="color: #ef4444;">Delete Comment</button>
+      <button class="post-option-item" onclick="closeCommentActionModal()">Cancel</button>
+    </div>
+  </div>
+
+  <div class="post-options-overlay" id="postOptionsModal" onclick="closePostOptions()">
+    <div class="post-options-dropdown" onclick="event.stopPropagation()">
+      <button class="post-option-item" onclick="downloadThisPost()">Download</button>
+      <button class="post-option-item" onclick="markNoInterest()">No Interest</button>
+      <button class="post-option-item" onclick="closePostOptions()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Sidebar Menu -->
+  <div class="sidebar-menu" id="sidebarMenu">
+    <div class="sidebar-header">
+      <div class="sidebar-title" id="lblMenu">Menu</div>
+      <button class="close-menu-btn" onclick="closeMenu()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    
+    <div class="sidebar-content">
+      <div class="menu-item" onclick="toggleKeyboardFloatingMode()"><i class="fa-solid fa-keyboard"></i><span id="lblKeyboardFloating">Keyboard Floating: Enabled</span></div>
+      <div class="menu-item" onclick="openProfilePicker()"><i class="fa-solid fa-user-gear"></i><span id="lblChangeProfile">Change Profile Photo</span></div>
+      <div class="menu-item" onclick="openCoverPicker()"><i class="fa-solid fa-image"></i><span id="lblChangeCover">Change Cover Photo</span></div>
+      <div class="menu-item" onclick="editUserName()"><i class="fa-solid fa-pen-to-square"></i><span id="lblEditName">Edit Name</span></div>
+      <div class="menu-item" onclick="editUserBio()"><i class="fa-solid fa-id-card"></i><span id="lblEditBio">Edit Bio</span></div>
+      <div class="menu-item" onclick="openProfilePage()"><i class="fa-solid fa-address-card"></i><span id="lblMyPosts">My Posts</span></div>
+      <div class="menu-item" onclick="togglePhoneVisibility()"><i class="fa-solid fa-phone"></i><span id="phoneVisibilityMenuText">Phone Number: Show</span></div>
+      <div class="menu-item" onclick="openFollowersPage()"><i class="fa-solid fa-users"></i><span id="lblFollowers">Followers</span></div>
+      <div class="menu-item" onclick="openFollowingPage()"><i class="fa-solid fa-user-plus"></i><span id="lblFollowing">Following</span></div>
+      <div class="menu-item" onclick="openTextPage()"><i class="fa-solid fa-comments"></i><span id="lblMessages">Messages</span></div>
+      <div class="menu-item" onclick="openNotifications()"><i class="fa-solid fa-bell"></i><span id="lblNotifications">Notifications</span></div>
+      <div class="menu-item" onclick="openPrivacySettings()"><i class="fa-solid fa-lock"></i><span id="lblPrivacy">Privacy</span></div>
+      <div class="menu-item" onclick="openSecuritySettings()"><i class="fa-solid fa-shield-halved"></i><span id="lblSecurity">Security</span></div>
+      <div class="menu-item" onclick="changeUserPassword()"><i class="fa-solid fa-key"></i><span id="lblChangePassword">Change Password</span></div>
+      <div class="menu-item" onclick="toggleDarkMode()"><i class="fa-solid fa-circle-half-stroke"></i><span id="lblDarkMode">Dark / Light Mode</span></div>
+      <div class="menu-item" onclick="toggleLanguage()"><i class="fa-solid fa-language"></i><span id="lblLanguage">Language (Amh/Eng)</span></div>
+      <div class="menu-item" onclick="openAppInfo()"><i class="fa-solid fa-circle-info"></i><span id="lblAppInfo">App Information</span></div>
+      <div class="menu-item logout-item" onclick="logoutUser()">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        <span id="lblLogout">Log Out</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TOP HEADER ===== -->
+  <div class="header">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <button class="hamburger-btn" onclick="openMenu()">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+      <div class="top-profile-box" id="topProfileBox" onclick="openProfilePage()">
+        <i class="fa-solid fa-user"></i>
+      </div>
+      
+      <div class="header-top-actions">
+        <button class="top-action-item live-item" onclick="openLiveHubPage()" title="Live">
+          <i class="fa-solid fa-circle-dot"></i>
+        </button>
+        <button class="top-action-item" onclick="openSearchPage()" title="Search">
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+        <button class="top-action-item" onclick="openGallery()" title="File">
+          <i class="fa-solid fa-folder-open"></i>
+        </button>
+        <button class="top-action-item" onclick="publishPost()" title="Post">
+          <i class="fa-solid fa-paper-plane icon-post"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== BOTTOM NAVIGATION BAR ===== -->
+  <div class="bottom-nav-bar">
+    <div class="bottom-nav-item" onclick="openDiscoverPage()">
+      <div class="bottom-nav-icon-box">
+        <i class="fa-solid fa-globe"></i>
+      </div>
+      <span id="navDiscover">Discover</span>
+      <span class="action-badge" id="discoverBadge">0</span>
+    </div>
+
+    <div class="bottom-nav-item" onclick="openConnectPage()">
+      <div class="bottom-nav-icon-box">
+        <i class="fa-solid fa-user-group"></i>
+      </div>
+      <span id="navConnect">Connect</span>
+      <span class="action-badge" id="connectBadge">0</span>
+    </div>
+
+    <div class="bottom-nav-item" onclick="openTextPage()">
+      <div class="bottom-nav-icon-box">
+        <i class="fa-solid fa-envelope"></i>
+      </div>
+      <span id="navText">Text</span>
+      <span class="action-badge" id="textBadge">0</span>
+    </div>
+  </div>
+
+  <div class="feed-container" id="feedContainer"></div>
+
+  <!-- CONNECT PAGE MODAL -->
+  <div class="connect-page" id="connectPage">
+    <div class="page-header">
+      <button class="back-btn" onclick="closeConnectPage()"><i class="fa-solid fa-arrow-left"></i></button>
+      <div class="page-title" id="titleConnect">Connect & Friends</div>
+    </div>
+    <div class="list-container" id="connectListContainer"></div>
+  </div>
+
+  <!-- TEXT / FRIEND LIST PAGE -->
+  <div class="text-page" id="textPage">
+    <div class="page-header">
+      <button class="back-btn" onclick="closeTextPage()"><i class="fa-solid fa-arrow-left"></i></button>
+      <div class="page-title" id="titleText">Friendship List (Text)</div>
+    </div>
+    <div class="list-container" id="textListContainer"></div>
+  </div>
+
+  <!-- CHAT CONVERSATION PAGE -->
+  <div class="chat-page" id="chatPage">
+    <div class="page-header">
+      <button class="back-btn" onclick="closeChatPage()"><i class="fa-solid fa-arrow-left"></i></button>
+      <div class="top-profile-box" id="chatFriendAvatar" style="width: 36px; height: 36px;"><i class="fa-solid fa-user"></i></div>
+      <div class="page-title" id="chatFriendNameTitle">Chat</div>
+    </div>
+    <div class="chat-messages-container" id="chatMessagesContainer"></div>
+    <div class="chat-input-bar" id="chatInputBar">
+      <button class="chat-icon-btn" onclick="openChatPhotoGallery()" title="Send photo">
+        <i class="fa-solid fa-image"></i>
+      </button>
+      <button class="chat-icon-btn" onclick="openChatVideoGallery()" title="Send video">
+        <i class="fa-solid fa-video"></i>
+      </button>
+      <input type="text" id="chatMessageInput" class="chat-input" placeholder="Type a message...">
+      <button class="chat-send-btn" onclick="sendChatMessage()" title="Send">
+        <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- SEARCH PAGE MODAL -->
+  <div class="search-page" id="searchPage">
+    <div class="page-header">
+      <button class="back-btn" onclick="closeSearchPage()"><i class="fa-solid fa-arrow-left"></i></button>
+      <input type="text" id="searchInput" class="chat-input" placeholder="Search anything (posts, users)..." oninput="filterGlobalSearch(this.value)">
+    </div>
+    <div class="search-results-grid" id="searchResultsGrid" style="grid-template-columns: 1fr; gap: 10px; padding: 12px;"></div>
+  </div>
+
+  <!-- DISCOVER PAGE MODAL -->
+  <div class="discover-page" id="discoverPage">
+    <div class="page-header">
+      <button class="back-btn" onclick="closeDiscoverPage()"><i class="fa-solid fa-arrow-left"></i></button>
+      <div class="page-title" id="titleDiscover">Discover All Posts</div>
+    </div>
+    <div class="discover-grid" id="discoverGrid"></div>
+  </div>
+
+  <!-- FULL USER PROFILE PAGE -->
+  <div class="profile-page" id="profilePage">
+    <div class="page-header" style="position: absolute; width: 100%; background: transparent; border: none; z-index: 5;">
+      <button class="back-btn" style="color: #fff; background: rgba(0,0,0,0.5); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;" onclick="closeProfilePage()">
+        <i class="fa-solid fa-arrow-left"></i>
+      </button>
+      <div class="page-title" id="profileHeaderTitle" style="color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">My Profile</div>
+      <div style="width: 24px;"></div>
+    </div>
+
+    <div class="profile-cover-section" id="profileCoverSection"></div>
+
+    <div class="profile-info-section">
+      <div class="profile-rect-box" id="profileRectBox">
+        <i class="fa-solid fa-user"></i>
+      </div>
+      <div class="user-details">
+        <div class="user-details-name" id="profileUserName">Kidane Biru</div>
+        <div class="user-details-phone" id="profileUserPhone">+251 900 000 000</div>
+        <div class="user-details-bio" id="profileUserBio">No bio added yet</div>
+      </div>
+    </div>
+
+    <div class="profile-wallet-section" id="profileWalletSection">
+      <div class="profile-wallet-card" onclick="openGiftShop()">
+        <div class="profile-wallet-icon" style="color: #d97706; background: #fffdf5; border: 2px solid #f2b705;"><i class="fa-solid fa-gift"></i></div>
+        <div class="profile-wallet-info">
+          <div class="profile-wallet-title" id="lblGiftShop">Gift Shop</div>
+          <div class="profile-wallet-sub" id="lblGiftShopSub">Buy tokens & send gifts</div>
+        </div>
+        <i class="fa-solid fa-chevron-right" style="color: #94a3b8;"></i>
+      </div>
+
+      <div class="profile-wallet-card" onclick="openCoinWallet()">
+        <div class="profile-wallet-icon" style="color: #00C853; background: #e8f5e9; border: 2px solid #00C853;"><i class="fa-solid fa-coins"></i></div>
+        <div class="profile-wallet-info">
+          <div class="profile-wallet-title" id="lblCoinWallet">Coin Wallet</div>
+          <div class="profile-wallet-sub"><span id="profileTokenCount">50</span> <span id="lblTokensAvail">Tokens available</span></div>
+        </div>
+        <i class="fa-solid fa-chevron-right" style="color: #94a3b8;"></i>
+      </div>
+    </div>
+
+    <div class="profile-actions-bar">
+      <span style="font-weight: 800; font-size: 15px;" id="lblMyPostsGrid">My Posts Grid</span>
+      <div class="batch-btn-group">
+        <button class="batch-btn batch-connect" onclick="profileConnectAction()">
+          <i class="fa-solid fa-user-plus"></i> Connect
+        </button>
+        <button class="batch-btn batch-download" onclick="downloadSelectedPosts()">
+          <i class="fa-solid fa-download"></i> Download
+        </button>
+        <button class="batch-btn batch-delete" onclick="deleteSelectedPosts()">
+          <i class="fa-solid fa-trash"></i> Delete
+        </button>
+      </div>
+    </div>
+
+    <div class="user-posts-grid" id="userPostsGrid"></div>
+  </div>
+
+  <!-- GENERIC MODAL / PAGE -->
+  <div class="generic-page" id="genericPage">
+    <div class="page-header">
+      <button class="back-btn" onclick="closeGenericPage()"><i class="fa-solid fa-arrow-left"></i></button>
+      <div class="page-title" id="genericPageTitle">Page Title</div>
+    </div>
+    <div class="list-container" id="genericPageContainer"></div>
+  </div>
+
+  <!-- Post Preview Confirmation Modal -->
+  <div class="purchase-modal" id="previewModal">
+    <div class="purchase-form-card" style="max-width: 380px; text-align: center;">
+      <div style="font-size: 17px; font-weight: 800; color: #111;" id="lblPreviewTitle">Do you want to post?</div>
+      <div id="previewMediaContainer" style="width: 100%; height: 260px; overflow: hidden; border-radius: 12px; margin: 10px 0; background: #000; display: flex; align-items: center; justify-content: center;"></div>
+      <div style="display: flex; gap: 10px; width: 100%;">
+        <button class="pay-submit-btn" onclick="confirmPublishPost()" id="lblYes">Yes</button>
+        <button class="cancel-btn" onclick="cancelPublishPost()" id="lblNo">No</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat Media Preview Modal -->
+  <div class="purchase-modal" id="chatPreviewModal">
+    <div class="purchase-form-card" style="max-width: 380px; text-align: center;">
+      <div style="font-size: 17px; font-weight: 800; color: #111;">Send photo or video to friend?</div>
+      <div id="chatPreviewMediaContainer" style="width: 100%; height: 260px; overflow: hidden; border-radius: 12px; margin: 10px 0; background: #000; display: flex; align-items: center; justify-content: center;"></div>
+      <div style="display: flex; gap: 10px; width: 100%;">
+        <button class="pay-submit-btn" onclick="confirmSendChatMedia()">Send</button>
+        <button class="cancel-btn" onclick="cancelSendChatMedia()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Information Modal -->
+  <div class="purchase-modal" id="appInfoModal">
+    <div class="purchase-form-card" style="text-align: center;">
+      <div style="font-size: 18px; font-weight: 800; color: #00C853; margin-bottom: 20px; line-height: 1.4;">Texphone created by Kidane Biru</div>
+      <button class="pay-submit-btn" onclick="closeAppInfo()">Close</button>
+    </div>
+  </div>
+
+  <!-- Full-Screen Gift Shop Page -->
+  <div class="gift-shop-page" id="giftShopPage">
+    <div class="page-header">
+      <button class="back-btn" onclick="closeGiftShop()">
+        <i class="fa-solid fa-arrow-left"></i>
+      </button>
+      <div class="page-title">Buy Tokens (Gift Shop)</div>
+    </div>
+
+    <div class="gift-grid-container">
+      <div class="token-card" onclick="selectTokenToBuy(5, 5)">
+        <div class="token-amount"><i class="fa-solid fa-coins"></i> 5 Token</div>
+        <div class="birr-amount">5 Birr</div>
+      </div>
+      <div class="token-card" onclick="selectTokenToBuy(10, 10)">
+        <div class="token-amount"><i class="fa-solid fa-coins"></i> 10 Token</div>
+        <div class="birr-amount">10 Birr</div>
+      </div>
+      <div class="token-card" onclick="selectTokenToBuy(50, 50)">
+        <div class="token-amount"><i class="fa-solid fa-coins"></i> 50 Token</div>
+        <div class="birr-amount">50 Birr</div>
+      </div>
+      <div class="token-card" onclick="selectTokenToBuy(100, 100)">
+        <div class="token-amount"><i class="fa-solid fa-coins"></i> 100 Token</div>
+        <div class="birr-amount">100 Birr</div>
+      </div>
+      <div class="token-card" onclick="selectTokenToBuy(200, 200)">
+        <div class="token-amount"><i class="fa-solid fa-coins"></i> 200 Token</div>
+        <div class="birr-amount">200 Birr</div>
+      </div>
+      <div class="token-card" onclick="selectTokenToBuy(1000, 1000)">
+        <div class="token-amount"><i class="fa-solid fa-coins"></i> 1000 Token</div>
+        <div class="birr-amount">1000 Birr</div>
+      </div>
+    </div>
+
+    <div style="padding: 16px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end;">
+      <button class="cancel-btn" style="width: auto; padding: 10px 24px;" onclick="closeGiftShop()">Close</button>
+    </div>
+  </div>
+
+  <!-- Modal Payment Form -->
+  <div class="purchase-modal" id="purchaseModal">
+    <div class="purchase-form-card">
+      <div style="font-size: 17px; font-weight: 800; color: #111;">Enter Purchase Details</div>
+      <div id="purchaseSummaryText" style="width: 100%; background: #fffdf5; border: 1px solid #f2b705; padding: 8px; border-radius: 10px; text-align: center; font-weight: 700; color: #d97706; font-size: 13px;">5 Token - 5 Birr</div>
+      <input type="text" id="buyFullName" class="form-input" placeholder="Full Name" required>
+      <input type="tel" id="buyPhone" class="form-input" placeholder="Phone Number" required>
+      <select id="buyBank" class="form-select" required>
+        <option value="" disabled selected>Select Bank</option>
+        <option value="cbe">Commercial Bank of Ethiopia (CBE)</option>
+        <option value="telebirr">Telebirr</option>
+        <option value="boa">Bank of Abyssinia (BoA)</option>
+        <option value="awash">Awash Bank</option>
+      </select>
+      <input type="text" id="buyAccount" class="form-input" placeholder="Bank Account Number" required>
+      <button class="pay-submit-btn" onclick="confirmTokenPurchase()">Pay & Buy</button>
+      <button class="cancel-btn" onclick="closePurchaseModal()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Full-Screen Coin Wallet Page -->
+  <div class="coin-wallet-page" id="coinWalletPage">
+    <div class="page-header">
+      <button class="back-btn" onclick="closeCoinWallet()">
+        <i class="fa-solid fa-arrow-left"></i>
+      </button>
+      <div class="page-title">Coin Wallet & Management</div>
+    </div>
+
+    <div class="wallet-body">
+      <div class="balance-card">
+        <div style="font-size: 15px; font-weight: 700; color: #b45309;">Accumulated Token Balance</div>
+        <div class="balance-val">
+          <i class="fa-solid fa-coins"></i> <span id="tokenBalance">50</span> Tokens
+        </div>
+      </div>
+
+      <div style="background-color: #f8fafc; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; border: 1px solid #e2e8f0;">
+        <div style="font-size: 15px; font-weight: 700; color: #1e293b;">Withdraw to Bank (Convert to Birr)</div>
+        <input type="text" id="withdrawName" class="form-input" placeholder="Full Name">
+        <input type="tel" id="withdrawPhone" class="form-input" placeholder="Phone Number">
+        <select id="withdrawBank" class="form-select">
+          <option value="" disabled selected>Select Bank Name</option>
+          <option value="cbe">Commercial Bank of Ethiopia (CBE)</option>
+          <option value="telebirr">Telebirr</option>
+          <option value="boa">Bank of Abyssinia</option>
+        </select>
+        <input type="text" id="withdrawAccount" class="form-input" placeholder="Bank Account Number">
+        <input type="number" id="withdrawTokens" class="form-input" placeholder="Tokens to Withdraw">
+        <button class="pay-submit-btn" onclick="submitWithdrawal()">Withdraw Cash</button>
+      </div>
+    </div>
+
+    <div style="padding: 16px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end;">
+      <button class="cancel-btn" style="width: auto; padding: 10px 24px;" onclick="closeCoinWallet()">Close</button>
+    </div>
+  </div>
+
+  <!-- COMMENTS SECTION MODAL -->
+  <div class="comments-modal" id="commentsModal">
+    <div class="comments-header">
+      <span id="commentModalTitle">Comments & Gifts</span>
+      <button class="back-btn" onclick="closeComments()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <!-- Top Gifters Horizontal Bar -->
+    <div class="top-gifters-bar" id="topGiftersBar"></div>
+
+    <div class="comments-list" id="commentsList"></div>
+
+    <div class="comment-input-container">
+      <div class="active-reply-banner" id="activeReplyBanner">
+        <span id="replyBannerText">Replying to user...</span>
+        <button style="background:none; border:none; color:#00C853; font-weight:800; cursor:pointer;" onclick="cancelReplyState()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="gift-popup" id="giftPopup">
+        <div class="gift-option" onclick="selectGift('Rose', '🌹', 5, this)">
+          <span style="font-size: 24px;">🌹</span>
+          <span style="font-size: 11px; font-weight: 700;">Rose (5)</span>
+        </div>
+        <div class="gift-option" onclick="selectGift('Crown', '👑', 10, this)">
+          <span style="font-size: 24px;">👑</span>
+          <span style="font-size: 11px; font-weight: 700;">Crown (10)</span>
+        </div>
+        <div class="gift-option" onclick="selectGift('Diamond', '💎', 25, this)">
+          <span style="font-size: 24px;">💎</span>
+          <span style="font-size: 11px; font-weight: 700;">Diamond (25)</span>
+        </div>
+        <div class="gift-option" onclick="selectGift('Adey Abeba', '🌻', 50, this)">
+          <span style="font-size: 24px;">🌻</span>
+          <span style="font-size: 11px; font-weight: 700;">Adey Abeba (50)</span>
+        </div>
+        <div class="gift-option" onclick="selectGift('Heart', '💖', 100, this)">
+          <span style="font-size: 24px;">💖</span>
+          <span style="font-size: 11px; font-weight: 700;">Heart (100)</span>
+        </div>
+        <div class="gift-option" onclick="selectGift('Car', '🚗', 200, this)">
+          <span style="font-size: 24px;">🚗</span>
+          <span style="font-size: 11px; font-weight: 700;">Car (200)</span>
+        </div>
+        <div class="gift-option" onclick="selectGift('Castle', '🏰', 500, this)">
+          <span style="font-size: 24px;">🏰</span>
+          <span style="font-size: 11px; font-weight: 700;">Castle (500)</span>
+        </div>
+        <div class="gift-option" onclick="selectGift('Trophy', '🏆', 1000, this)">
+          <span style="font-size: 24px;">🏆</span>
+          <span style="font-size: 11px; font-weight: 700;">Trophy (1000)</span>
+        </div>
+      </div>
+
+      <div class="comment-input-row">
+        <button class="gift-picker-btn" id="commentGiftBtn" onclick="toggleGiftPopup()"><i class="fa-solid fa-gift"></i></button>
+        <input type="text" id="commentInput" class="comment-input" placeholder="Write a comment or send gift...">
+        <button class="send-comment-btn" onclick="submitComment()"><i class="fa-solid fa-arrow-right"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Firebase & Cloudinary Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyBiy7tl7t_zz7uLayFEiivzX-KwM-KwBy4",
+      databaseURL: "https://texphone-default-rtdb.firebaseio.com",
+      projectId: "texphone",
+      storageBucket: "texphone.firebasestorage.app"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const CLOUDINARY_CLOUD_NAME = "zznspfun";
+    const CLOUDINARY_UPLOAD_PRESET = "Texphone";
+
+    // Agora App ID Configuration & Token
+    const AGORA_APP_ID = "67c5cb439c7e4b0f8139663ab721ac49";
+    const channelName = "Texphone live";
+    const token = "007eJxTYAifrsR/VqOg2YNx1c8JU869FZ36YdPVC1HBdh1SNbXZvMoKDGbmyabJSSbGlsnmqSZJBmkWhsaWZmbGiUnmRoaJySaWv84fz2oIZGRQz5rHwAiFID4vQ0hqRUFGfl6qQk5mWSoDAwBYLyK1";
+
+    let agoraClient = null;
+    let localAudioTrack = null;
+    let localVideoTrack = null;
+    let currentLiveChannelName = null;
+    let isHostingLive = false;
+    let activeLiveStreamsData = {};
+
+    let totalTokens = parseInt(localStorage.getItem('texphone_tokens')) || 50;
+    let selectedMediaFile = null;
+    let selectedChatMediaFile = null;
+    let currentProfileSrc = localStorage.getItem('texphone_avatar') || "";
+    let currentCoverSrc = localStorage.getItem('texphone_cover') || "";
+    let currentActivePost = null;
+    let currentChatFriend = null;
+    let currentViewingProfileUser = null;
+    let isPhoneHidden = false;
+    let isDarkMode = localStorage.getItem('texphone_dark') === 'true';
+    let currentLang = localStorage.getItem('texphone_lang') || 'en';
+    let currentPostForComment = null;
+    let replyingToCommentId = null;
+    let activeChatMsgIdForAction = null;
+    let activeChatMsgObjForAction = null;
+    let activeCommentIdForAction = null;
+    let activeCommentObjForAction = null;
+    let isKeyboardFloatingEnabled = true;
+    
+    let userPostsList = [];
+    let commentsData = [];
+    let commentLikesData = {};
+    let allChatMessages = {};
+    let giftTransactions = {};
+    let postLikesData = {};
+    let postRepostsData = {};
+    
+    let allRegisteredUsers = JSON.parse(localStorage.getItem('texphone_all_users')) || [];
+    let connectRequests = JSON.parse(localStorage.getItem('texphone_requests')) || {};
+    let friendships = JSON.parse(localStorage.getItem('texphone_friendships')) || [];
+    let blockedUsers = JSON.parse(localStorage.getItem('texphone_blocked')) || [];
+    let currentLoggedInUser = JSON.parse(localStorage.getItem('texphone_user')) || null;
+
+    let pendingUserData = null;
+    let currentRegisteringPhone = null;
+
+    let selectedTokenAmount = 0;
+    let selectedTokenBirr = 0;
+    let selectedGift = null;
+
+    let openModalsStack = [];
+
+    function pushPageState(pageId) {
+      if (!openModalsStack.includes(pageId)) {
+        openModalsStack.push(pageId);
+        history.pushState({ page: pageId }, "");
+      }
+    }
+
+    window.addEventListener('popstate', () => {
+      if (openModalsStack.length > 0) {
+        const topModal = openModalsStack.pop();
+        closeModalOrPageById(topModal);
+        history.pushState(null, "", window.location.href);
+      }
+    });
+
+    history.pushState(null, "", window.location.href);
+
+    function closeModalOrPageById(id) {
+      if (id === 'connectPage') closeConnectPage(true);
+      else if (id === 'textPage') closeTextPage(true);
+      else if (id === 'chatPage') closeChatPage(true);
+      else if (id === 'searchPage') closeSearchPage(true);
+      else if (id === 'discoverPage') closeDiscoverPage(true);
+      else if (id === 'profilePage') closeProfilePage(true);
+      else if (id === 'giftShopPage') closeGiftShop(true);
+      else if (id === 'coinWalletPage') closeCoinWallet(true);
+      else if (id === 'genericPage') closeGenericPage(true);
+      else if (id === 'commentsModal') closeComments(true);
+      else if (id === 'sidebarMenu') closeMenu(true);
+      else if (id === 'previewModal') cancelPublishPost();
+      else if (id === 'otpVerificationPage') backToAuthFromOtp();
+      else if (id === 'liveStudioPage') leaveLiveStream();
+      else if (id === 'liveHubPage') closeLiveHubPage();
+    }
+
+    const translations = {
+      en: {
+        menu: "Menu",
+        keyboardFloating: "Keyboard Floating: Enabled",
+        changeProfilePhoto: "Change Profile Photo",
+        changeCoverPhoto: "Change Cover Photo",
+        editName: "Edit Name",
+        editBio: "Edit Bio",
+        myPosts: "My Posts",
+        phoneShow: "Phone Number: Show",
+        phoneHide: "Phone Number: Hide",
+        followers: "Followers",
+        following: "Following",
+        messages: "Messages",
+        notifications: "Notifications",
+        privacy: "Privacy",
+        security: "Security",
+        changePassword: "Change Password",
+        darkMode: "Dark / Light Mode",
+        language: "Language: English",
+        appInfo: "App Information",
+        logout: "Log Out",
+        discover: "Discover",
+        connect: "Connect",
+        text: "Text",
+        giftShop: "Gift Shop",
+        giftShopSub: "Buy tokens & send gifts",
+        coinWallet: "Coin Wallet",
+        tokensAvail: "Tokens available",
+        myPostsGrid: "My Posts Grid",
+        connectFriends: "Connect & Friends",
+        friendshipList: "Friendship List (Text)",
+        discoverAll: "Discover All Posts",
+        doYouWantToPost: "Do you want to post?",
+        yes: "Yes",
+        no: "No",
+        loading: "Loading...",
+        publishing: "Publishing post...",
+        sendingMsg: "Sending message...",
+        uploadingProfile: "Uploading profile photo...",
+        uploadingCover: "Uploading cover photo..."
+      },
+      am: {
+        menu: "ሜኑ",
+        keyboardFloating: "የኪቦርድ ተንሳፋፊ ሁኔታ: ክፍት",
+        changeProfilePhoto: "የፕሮፋይል ፎቶ ቀይር",
+        changeCoverPhoto: "የሽፋን ፎቶ ቀይር",
+        editName: "ስም አስተካክል",
+        editBio: "ባዮ ጻፍ/ቀይር",
+        myPosts: "የእኔ ፖስቶች",
+        phoneShow: "ስልክ ቁጥር: አሳይ",
+        phoneHide: "ስልክ ቁጥር: ደብቅ",
+        followers: "ተከታዮች",
+        following: "የምትከተላቸው",
+        messages: "መልእክቶች",
+        notifications: "ማሳወቂያዎች",
+        privacy: "ግላዊነት",
+        security: "ደህንነት",
+        changePassword: "የሚስጥር ቁጥር ቀይር",
+        darkMode: "ጨለማ / ብሩህ ገጽታ",
+        language: "ቋንቋ: አማርኛ",
+        appInfo: "ስለ አፕሊኬሽኑ",
+        logout: "ውጣ",
+        discover: "አስስ",
+        connect: "ተገናኝ",
+        text: "ጽሁፍ",
+        giftShop: "የጊፍት ሱቅ",
+        giftShopSub: "ቶከን ገዝተው ጊፍት ይላኩ",
+        coinWallet: "የኮይን ቦርሳ",
+        tokensAvail: "የቀሩ ቶከኖች",
+        myPostsGrid: "የእኔ ፖስቶች ግሪድ",
+        connectFriends: "ግንኙነቶች እና ጓደኞች",
+        friendshipList: "የጓደኞች ዝርዝር (ጽሁፍ)",
+        discoverAll: "ሁሉንም ፖስቶች አስስ",
+        doYouWantToPost: "መለጠፍ ይፈልጋሉ?",
+        yes: "አዎ",
+        no: "አይ",
+        loading: "እየተጫነ ነው...",
+        publishing: "ፖስት በመለጠፍ ላይ...",
+        sendingMsg: "መልእክት በመላክ ላይ...",
+        uploadingProfile: "ፕሮፋይል ፎቶ በመጫን ላይ...",
+        uploadingCover: "የሽፋን ፎቶ በመጫን ላይ..."
+      }
+    };
+
+    function showLoading(text) {
+      const t = translations[currentLang];
+      document.getElementById('loadingText').innerText = text || t.loading;
+      document.getElementById('loadingOverlay').classList.add('active');
+    }
+
+    function hideLoading() {
+      document.getElementById('loadingOverlay').classList.remove('active');
+    }
+
+    function applyLanguage() {
+      const t = translations[currentLang];
+      const elMap = {
+        'lblMenu': t.menu,
+        'lblKeyboardFloating': isKeyboardFloatingEnabled ? t.keyboardFloating : (currentLang === 'am' ? 'የኪቦርድ ተንሳፋፊ ሁኔታ: ዝግ' : 'Keyboard Floating: Disabled'),
+        'lblChangeProfile': t.changeProfilePhoto,
+        'lblChangeCover': t.changeCoverPhoto,
+        'lblEditName': t.editName,
+        'lblEditBio': t.editBio,
+        'lblMyPosts': t.myPosts,
+        'phoneVisibilityMenuText': isPhoneHidden ? t.phoneHide : t.phoneShow,
+        'lblFollowers': t.followers,
+        'lblFollowing': t.following,
+        'lblMessages': t.messages,
+        'lblNotifications': t.notifications,
+        'lblPrivacy': t.privacy,
+        'lblSecurity': t.security,
+        'lblChangePassword': t.changePassword,
+        'lblDarkMode': t.darkMode,
+        'lblLanguage': t.language,
+        'lblAppInfo': t.appInfo,
+        'lblLogout': t.logout,
+        'navDiscover': t.discover,
+        'navConnect': t.connect,
+        'navText': t.text,
+        'lblGiftShop': t.giftShop,
+        'lblGiftShopSub': t.giftShopSub,
+        'lblCoinWallet': t.coinWallet,
+        'lblTokensAvail': t.tokensAvail,
+        'lblMyPostsGrid': t.myPostsGrid,
+        'titleConnect': t.connectFriends,
+        'titleText': t.friendshipList,
+        'titleDiscover': t.discoverAll,
+        'lblPreviewTitle': t.doYouWantToPost,
+        'lblYes': t.yes,
+        'lblNo': t.no
+      };
+      Object.keys(elMap).forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = elMap[id];
+      });
+    }
+
+    function toggleKeyboardFloatingMode() {
+      isKeyboardFloatingEnabled = !isKeyboardFloatingEnabled;
+      const el = document.getElementById('lblKeyboardFloating');
+      if (el) {
+        el.innerText = isKeyboardFloatingEnabled ? 
+          (currentLang === 'am' ? 'የኪቦርድ ተንሳፋፊ ሁኔታ: ክፍት' : 'Keyboard Floating: Enabled') : 
+          (currentLang === 'am' ? 'የኪቦርድ ተንሳፋፊ ሁኔታ: ዝግ' : 'Keyboard Floating: Disabled');
+      }
+      alert(isKeyboardFloatingEnabled ? "Keyboard floating mode enabled (Moves above keyboard)." : "Keyboard floating mode disabled.");
+      closeMenu();
+    }
+
+    function pauseAllVideos() {
+      document.querySelectorAll('video').forEach(video => {
+        video.pause();
+        video.muted = true;
+      });
+      closeProfileVideoModal();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if ('OTPCredential' in window) {
+        navigator.credentials.get({
+          otp: { transport: ['sms'] }
+        }).then(otp => {
+          if (otp && otp.code) {
+            document.getElementById('otpCodeInput').value = otp.code;
+            verifyOtpCode();
+          }
+        }).catch(err => {
+          console.log("WebOTP API Auto-read not triggered:", err);
+        });
+      }
+
+      const chatInputEl = document.getElementById('chatMessageInput');
+      const chatBarEl = document.getElementById('chatInputBar');
+      if (chatInputEl && chatBarEl) {
+        chatInputEl.addEventListener('focus', () => {
+          if (isKeyboardFloatingEnabled && window.visualViewport) {
+            chatBarEl.style.bottom = (window.innerHeight - window.visualViewport.height) + 'px';
+          }
+        });
+        chatInputEl.addEventListener('blur', () => {
+          chatBarEl.style.bottom = '0px';
+        });
+      }
+
+      const liveCommentInputEl = document.getElementById('liveCommentInput');
+      const liveBottomBarEl = document.getElementById('liveBottomBar');
+      if (liveCommentInputEl && liveBottomBarEl) {
+        liveCommentInputEl.addEventListener('focus', () => {
+          if (window.visualViewport) {
+            liveBottomBarEl.style.bottom = (window.innerHeight - window.visualViewport.height) + 'px';
+          }
+        });
+        liveCommentInputEl.addEventListener('blur', () => {
+          liveBottomBarEl.style.bottom = '0px';
+        });
+      }
+
+      const splash = document.getElementById('splashScreen');
+      const progressBar = document.getElementById('splashProgressBar');
+      const progressText = document.getElementById('splashProgressText');
+      const noInternetEl = document.getElementById('splashNoInternet');
+
+      let progress = 0;
+      let offlineSecondsCount = 0;
+
+      const interval = setInterval(() => {
+        if (!navigator.onLine) {
+          noInternetEl.style.display = 'block';
+          offlineSecondsCount++;
+          if (offlineSecondsCount >= 4) return;
+          return;
+        } else {
+          noInternetEl.style.display = 'none';
+          offlineSecondsCount = 0;
+        }
+
+        progress += 5;
+        if (progressBar) progressBar.style.width = progress + '%';
+        if (progressText) progressText.innerText = progress + '%';
+
+        if (progress >= 100) {
+          clearInterval(interval);
+          setTimeout(() => {
+            if (splash) {
+              splash.style.opacity = '0';
+              setTimeout(() => {
+                splash.style.display = 'none';
+                const savedUser = localStorage.getItem('texphone_user');
+                if (!savedUser) {
+                  document.getElementById('authOverlay').classList.add('active');
+                } else {
+                  currentLoggedInUser = JSON.parse(savedUser);
+                  if (currentLoggedInUser.tokens !== undefined) {
+                    totalTokens = currentLoggedInUser.tokens;
+                  }
+                  updateUserProfileUI();
+                }
+              }, 400);
+            }
+          }, 200);
+        }
+      }, 1000);
+
+      if (isDarkMode) {
+        document.body.classList.add('light-mode');
+      }
+
+      updateAvatarUI();
+      applyLanguage();
+
+      db.ref('texphone/users').on('value', (snapshot) => {
+        const data = snapshot.val();
+        allRegisteredUsers = data ? Object.values(data) : [];
+        if (currentLoggedInUser) {
+          const me = allRegisteredUsers.find(u => u.name === currentLoggedInUser.name);
+          if (me && me.tokens !== undefined) {
+            totalTokens = me.tokens;
+            localStorage.setItem('texphone_tokens', totalTokens);
+            currentLoggedInUser.tokens = totalTokens;
+            localStorage.setItem('texphone_user', JSON.stringify(currentLoggedInUser));
+            updateAvatarUI();
+          }
+        }
+        if (document.getElementById('connectPage').classList.contains('active')) renderConnectList();
+        if (document.getElementById('textPage').classList.contains('active')) renderTextList();
+      });
+
+      db.ref('texphone/posts').on('value', (snapshot) => {
+        const data = snapshot.val();
+        userPostsList = data ? Object.values(data) : [];
+        userPostsList.sort((a, b) => b.id - a.id);
+        loadAllGlobalPosts();
+      });
+
+      db.ref('texphone/comments').on('value', (snapshot) => {
+        const data = snapshot.val();
+        commentsData = data ? Object.values(data) : [];
+        renderComments();
+        updateAllCountsOnFeed();
+      });
+
+      db.ref('texphone/commentLikes').on('value', (snapshot) => {
+        commentLikesData = snapshot.val() || {};
+        renderComments();
+      });
+
+      db.ref('texphone/likes').on('value', (snapshot) => {
+        postLikesData = snapshot.val() || {};
+        updateAllCountsOnFeed();
+      });
+
+      db.ref('texphone/reposts').on('value', (snapshot) => {
+        postRepostsData = snapshot.val() || {};
+        updateAllCountsOnFeed();
+      });
+
+      db.ref('texphone/gifts').on('value', (snapshot) => {
+        giftTransactions = snapshot.val() || {};
+        if (currentPostForComment) renderTopGifters(currentPostForComment.id);
+      });
+
+      db.ref('texphone/liveStreams').on('value', (snapshot) => {
+        activeLiveStreamsData = snapshot.val() || {};
+        if (document.getElementById('liveHubPage').classList.contains('active')) {
+          renderLiveHubStreamsList();
+        }
+      });
+
+      db.ref('texphone/chats').on('value', (snapshot) => {
+        const prevChats = allChatMessages;
+        allChatMessages = snapshot.val() || {};
+        
+        if (currentLoggedInUser) {
+          let totalUnreadCount = 0;
+          let newIncomingMessage = false;
+
+          Object.keys(allChatMessages).forEach(room => {
+            if (room.includes(currentLoggedInUser.name)) {
+              const [u1, u2] = room.split('_');
+              const otherUser = u1 === currentLoggedInUser.name ? u2 : u1;
+              if (blockedUsers.includes(otherUser)) return;
+
+              const msgs = Object.values(allChatMessages[room]);
+              const prevMsgs = prevChats[room] ? Object.values(prevChats[room]) : [];
+              const lastSeenRoomTime = parseInt(localStorage.getItem('texphone_last_seen_' + room)) || 0;
+              const unreadInRoom = msgs.filter(msg => msg.sender !== currentLoggedInUser.name && msg.id > lastSeenRoomTime).length;
+              totalUnreadCount += unreadInRoom;
+
+              if (msgs.length > prevMsgs.length) {
+                const latestMsg = msgs[msgs.length - 1];
+                if (latestMsg && latestMsg.sender !== currentLoggedInUser.name) {
+                  newIncomingMessage = true;
+                }
+              }
+            }
+          });
+
+          if (newIncomingMessage) playLoudMessageSound();
+
+          const isTextOrChatOpen = document.getElementById('textPage').classList.contains('active') || document.getElementById('chatPage').classList.contains('active');
+          if (totalUnreadCount > 0 && !isTextOrChatOpen) {
+            const textBadge = document.getElementById('textBadge');
+            if (textBadge) {
+              textBadge.innerText = totalUnreadCount > 9 ? '9+' : totalUnreadCount;
+              textBadge.classList.add('active');
+            }
+          }
+        }
+
+        if (document.getElementById('textPage').classList.contains('active')) renderTextList();
+        if (currentChatFriend) renderChatMessages();
+      });
+
+      db.ref('texphone/requests').on('value', (snapshot) => {
+        const prevRequests = connectRequests;
+        connectRequests = snapshot.val() || {};
+        
+        if (currentLoggedInUser) {
+          const incomingReqs = Object.keys(connectRequests).filter(key => key.endsWith(`_to_${currentLoggedInUser.name}`) && connectRequests[key] === 'pending');
+          const prevIncomingCount = Object.keys(prevRequests).filter(key => key.endsWith(`_to_${currentLoggedInUser.name}`) && prevRequests[key] === 'pending').length;
+          
+          if (incomingReqs.length > prevIncomingCount) playLoudMessageSound();
+          
+          const connectBadge = document.getElementById('connectBadge');
+          if (connectBadge) {
+            connectBadge.innerText = incomingReqs.length;
+            if(incomingReqs.length > 0 && !document.getElementById('connectPage').classList.contains('active')) {
+              connectBadge.classList.add('active');
+            } else {
+              connectBadge.classList.remove('active');
+            }
+          }
+        }
+        if (document.getElementById('connectPage').classList.contains('active')) renderConnectList();
+        if (document.getElementById('textPage').classList.contains('active')) renderTextList();
+      });
+
+      db.ref('texphone/blocked/' + (currentLoggedInUser ? currentLoggedInUser.name : '')).on('value', (snapshot) => {
+        blockedUsers = snapshot.val() || [];
+        localStorage.setItem('texphone_blocked', JSON.stringify(blockedUsers));
+      });
+    });
+
+    // ===== LIVE HUB & AGORA LIVE STREAMING FUNCTIONS =====
+    function openLiveHubPage() {
+      if (!currentLoggedInUser) {
+        alert("Please sign in first to access Live Hub.");
+        return;
+      }
+      pauseAllVideos();
+      document.getElementById('liveHubPage').classList.add('active');
+      pushPageState('liveHubPage');
+      renderLiveHubStreamsList();
+    }
+
+    function closeLiveHubPage(fromPop = false) {
+      document.getElementById('liveHubPage').classList.remove('active');
+    }
+
+    function renderLiveHubStreamsList() {
+      const container = document.getElementById('liveHubStreamsContainer');
+      if (!container) return;
+      container.innerHTML = "";
+
+      const streams = Object.values(activeLiveStreamsData);
+      if (streams.length === 0) {
+        container.innerHTML = `<div style="text-align:center; color:#888; padding:30px; font-size:14px;">No active live streams right now. Be the first to start live!</div>`;
+      } else {
+        streams.forEach(s => {
+          const item = document.createElement('div');
+          item.className = 'user-connect-item';
+          item.style.background = '#1e293b';
+          item.style.borderColor = '#334155';
+          item.style.color = '#fff';
+
+          const avatarHTML = s.hostAvatar ? `<img src="${s.hostAvatar}" alt="Host">` : `<i class="fa-solid fa-user"></i>`;
+          item.innerHTML = `
+            <div class="user-connect-info">
+              <div class="list-profile-rect">${avatarHTML}</div>
+              <div>
+                <div class="user-connect-name" style="color:#fff;">${s.host}'s Live Studio</div>
+                <div style="font-size:11px; color:#ef4444; font-weight:700; margin-top:2px;"><i class="fa-solid fa-circle-dot"></i> LIVE NOW</div>
+              </div>
+            </div>
+            <button class="btn-connect" onclick="joinLiveStreamAsViewer('${s.channel}')">Watch</button>
+          `;
+          container.appendChild(item);
+        });
+      }
+    }
+
+    async function openStartLiveSetup() {
+      closeLiveHubPage();
+      currentLiveChannelName = channelName;
+      isHostingLive = true;
+
+      document.getElementById('liveStudioPage').classList.add('active');
+      pushPageState('liveStudioPage');
+      document.querySelectorAll('.host-only-control').forEach(el => el.style.display = 'flex');
+      document.querySelectorAll('.viewer-only-control').forEach(el => el.style.display = 'none');
+      document.getElementById('liveBadgeLabel').innerText = "HOST LIVE";
+
+      showLoading("Starting live stream...");
+      try {
+        agoraClient = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
+        await agoraClient.setClientRole("host");
+        await agoraClient.join(AGORA_APP_ID, channelName, token, null);
+
+        localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+        
+        localVideoTrack.play("agoraPlayer");
+        await agoraClient.publish([localAudioTrack, localVideoTrack]);
+
+        db.ref(`texphone/liveStreams/${channelName}`).set({
+          channel: channelName,
+          host: currentLoggedInUser.name,
+          hostAvatar: currentProfileSrc,
+          timestamp: Date.now()
+        });
+
+        db.ref(`texphone/liveStreams/${channelName}`).onDisconnect().remove();
+        setupLiveRealtimeSync(channelName);
+
+        hideLoading();
+      } catch (error) {
+        hideLoading();
+        alert("Agora live initialization error: " + error.message);
+        leaveLiveStream();
+      }
+    }
+
+    async function joinLiveStreamAsViewer(targetChannelName) {
+      closeLiveHubPage();
+      currentLiveChannelName = targetChannelName;
+      isHostingLive = false;
+
+      document.getElementById('liveStudioPage').classList.add('active');
+      pushPageState('liveStudioPage');
+      document.querySelectorAll('.host-only-control').forEach(el => el.style.display = 'none');
+      document.querySelectorAll('.viewer-only-control').forEach(el => el.style.display = 'flex');
+      document.getElementById('liveBadgeLabel').innerText = "VIEWING LIVE";
+
+      showLoading("Joining live stream...");
+      try {
+        agoraClient = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
+        await agoraClient.setClientRole("audience");
+
+        agoraClient.on("user-published", async (user, mediaType) => {
+          await agoraClient.subscribe(user, mediaType);
+          if (mediaType === "video") {
+            const remoteVideoTrack = user.videoTrack;
+            remoteVideoTrack.play("agoraPlayer");
+          }
+          if (mediaType === "audio") {
+            const remoteAudioTrack = user.audioTrack;
+            remoteAudioTrack.play();
+          }
+        });
+
+        await agoraClient.join(AGORA_APP_ID, targetChannelName, token, null);
+        setupLiveRealtimeSync(targetChannelName);
+        hideLoading();
+      } catch (error) {
+        hideLoading();
+        alert("Failed to join live stream: " + error.message);
+        leaveLiveStream();
+      }
+    }
+
+    function setupLiveRealtimeSync(channelNameKey) {
+      db.ref(`texphone/liveViewers/${channelNameKey}/${currentLoggedInUser.name}`).set({
+        name: currentLoggedInUser.name,
+        avatar: currentProfileSrc
+      });
+      db.ref(`texphone/liveViewers/${channelNameKey}/${currentLoggedInUser.name}`).onDisconnect().remove();
+
+      db.ref(`texphone/liveViewers/${channelNameKey}`).on('value', (snapshot) => {
+        const viewers = snapshot.val() || {};
+        const count = Object.keys(viewers).length;
+        document.getElementById('liveViewerCount').innerText = count;
+      });
+
+      db.ref(`texphone/liveComments/${channelNameKey}`).on('child_added', (snapshot) => {
+        const c = snapshot.val();
+        appendLiveCommentToUI(c.sender, c.text);
+      });
+    }
+
+    function appendLiveCommentToUI(sender, text) {
+      const container = document.getElementById('liveFeedCommentsContainer');
+      if (!container) return;
+      const bubble = document.createElement('div');
+      bubble.className = 'live-comment-bubble';
+      bubble.innerHTML = `<span class="live-comment-user">${sender}:</span> <span>${text}</span>`;
+      container.appendChild(bubble);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function sendLiveComment() {
+      const input = document.getElementById('liveCommentInput');
+      const text = input.value.trim();
+      if (!text || !currentLiveChannelName || !currentLoggedInUser) return;
+
+      const commentId = Date.now();
+      db.ref(`texphone/liveComments/${currentLiveChannelName}/${commentId}`).set({
+        sender: currentLoggedInUser.name,
+        text: text,
+        timestamp: commentId
+      });
+      input.value = "";
+    }
+
+    function toggleLiveGiftPopup() {
+      if (totalTokens <= 0) {
+        alert("You have 0 coin balance. Please top up tokens in the Gift Shop to send gifts.");
+        return;
+      }
+      const popup = document.getElementById('liveGiftPopup');
+      if(popup) popup.classList.toggle('active');
+    }
+
+    function sendLiveTokenGift(giftName, icon, tokenCost) {
+      if (!currentLoggedInUser) {
+        alert("Please sign in first.");
+        return;
+      }
+      if (totalTokens <= 0 || tokenCost > totalTokens) {
+        alert("Insufficient coin balance to send this gift.");
+        return;
+      }
+
+      totalTokens -= tokenCost;
+      localStorage.setItem('texphone_tokens', totalTokens);
+      currentLoggedInUser.tokens = totalTokens;
+      localStorage.setItem('texphone_user', JSON.stringify(currentLoggedInUser));
+      db.ref('texphone/users/' + currentLoggedInUser.name).set(currentLoggedInUser);
+      updateAvatarUI();
+
+      if (currentLiveChannelName) {
+        db.ref(`texphone/liveStreams/${currentLiveChannelName}`).once('value', (snapshot) => {
+          const streamInfo = snapshot.val();
+          const hostName = streamInfo ? streamInfo.host : null;
+          if (hostName) {
+            db.ref('texphone/users/' + hostName).once('value', (hostSnap) => {
+              const hostUser = hostSnap.val() || { tokens: 50 };
+              const hostTokens = (hostUser.tokens !== undefined) ? hostUser.tokens : 50;
+              const newHostTokens = hostTokens + tokenCost;
+              
+              db.ref('texphone/users/' + hostName + '/tokens').set(newHostTokens);
+              
+              if (hostName === currentLoggedInUser.name) {
+                totalTokens = newHostTokens;
+                currentLoggedInUser.tokens = totalTokens;
+                localStorage.setItem('texphone_tokens', totalTokens);
+                localStorage.setItem('texphone_user', JSON.stringify(currentLoggedInUser));
+                updateAvatarUI();
+              }
+            });
+          }
+        });
+
+        const commentId = Date.now();
+        db.ref(`texphone/liveComments/${currentLiveChannelName}/${commentId}`).set({
+          sender: currentLoggedInUser.name,
+          text: `🎁 sent ${giftName} ${icon} (${tokenCost} Tokens)!`,
+          timestamp: commentId
+        });
+      }
+
+      toggleLiveGiftPopup();
+      alert(`Successfully sent ${giftName} (${tokenCost} tokens)!`);
+    }
+
+    function toggleHostMic() {
+      if (localAudioTrack) {
+        const enabled = localAudioTrack.enabled;
+        localAudioTrack.setEnabled(!enabled);
+        document.getElementById('hostMicBtn').innerHTML = enabled ? '<i class="fa-solid fa-microphone-slash" style="color:#ef4444;"></i>' : '<i class="fa-solid fa-microphone"></i>';
+      }
+    }
+
+    function toggleHostCamera() {
+      if (localVideoTrack) {
+        const enabled = localVideoTrack.enabled;
+        localVideoTrack.setEnabled(!enabled);
+        document.getElementById('hostCamBtn').innerHTML = enabled ? '<i class="fa-solid fa-video-slash" style="color:#ef4444;"></i>' : '<i class="fa-solid fa-video"></i>';
+      }
+    }
+
+    async function switchHostCamera() {
+      if (localVideoTrack && AgoraRTC.getCameras) {
+        try {
+          const cameras = await AgoraRTC.getCameras();
+          if (cameras.length > 1) {
+            alert("Switching camera...");
+          }
+        } catch(e) {}
+      }
+    }
+
+    function sendLiveLike() {
+      const likeBtn = document.getElementById('liveLikeBtn');
+      likeBtn.classList.add('liked');
+      setTimeout(() => likeBtn.classList.remove('liked'), 500);
+      appendLiveCommentToUI(currentLoggedInUser.name, "❤️ sent a like!");
+    }
+
+    function shareLiveStream() {
+      navigator.clipboard?.writeText(window.location.href);
+      alert("Live stream link copied to clipboard!");
+    }
+
+    function followLiveHost() {
+      alert("Successfully followed live host!");
+    }
+
+    function openLiveViewersModal() {
+      if (!currentLiveChannelName) return;
+      const container = document.getElementById('liveViewersListContainer');
+      container.innerHTML = "";
+
+      db.ref(`texphone/liveViewers/${currentLiveChannelName}`).once('value', (snapshot) => {
+        const viewers = snapshot.val() || {};
+        const list = Object.values(viewers);
+        if (list.length === 0) {
+          container.innerHTML = `<div style="text-align:center; color:#888;">No viewers.</div>`;
+        } else {
+          list.forEach(v => {
+            const profileHTML = v.avatar ? `<img src="${v.avatar}" alt="Viewer">` : `<i class="fa-solid fa-user"></i>`;
+            const item = document.createElement('div');
+            item.className = 'user-connect-item';
+            item.innerHTML = `
+              <div class="user-connect-info">
+                <div class="list-profile-rect">${profileHTML}</div>
+                <div class="user-connect-name">${v.name}</div>
+              </div>
+            `;
+            container.appendChild(item);
+          });
+        }
+        document.getElementById('liveViewersModal').classList.add('active');
+        pushPageState('liveViewersModal');
+      });
+    }
+
+    function closeLiveViewersModal() {
+      document.getElementById('liveViewersModal').classList.remove('active');
+    }
+
+    function openLiveManageModal() {
+      document.getElementById('liveManageModal').classList.add('active');
+      pushPageState('liveManageModal');
+    }
+
+    function closeLiveManageModal() {
+      document.getElementById('liveManageModal').classList.remove('active');
+    }
+
+    async function endLiveStream() {
+      if (confirm("Are you sure you want to end this live stream?")) {
+        if (currentLiveChannelName) {
+          await db.ref(`texphone/liveStreams/${currentLiveChannelName}`).remove();
+          await db.ref(`texphone/liveViewers/${currentLiveChannelName}`).remove();
+        }
+        await leaveLiveStream();
+      }
+    }
+
+    async function leaveLiveStream() {
+      if (localAudioTrack) {
+        localAudioTrack.stop();
+        localAudioTrack.close();
+        localAudioTrack = null;
+      }
+      if (localVideoTrack) {
+        localVideoTrack.stop();
+        localVideoTrack.close();
+        localVideoTrack = null;
+      }
+      if (agoraClient) {
+        await agoraClient.leave();
+        agoraClient = null;
+      }
+      if (currentLiveChannelName && !isHostingLive && currentLoggedInUser) {
+        db.ref(`texphone/liveViewers/${currentLiveChannelName}/${currentLoggedInUser.name}`).remove();
+      }
+
+      currentLiveChannelName = null;
+      isHostingLive = false;
+      document.getElementById('liveStudioPage').classList.remove('active');
+      document.getElementById('agoraPlayer').innerHTML = "";
+      document.getElementById('liveFeedCommentsContainer').innerHTML = "";
+    }
+
+    function showSmsNotificationToast(message) {
+      let toast = document.getElementById('smsToastNotification');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'smsToastNotification';
+        toast.className = 'sms-notification-toast';
+        document.body.appendChild(toast);
+      }
+      toast.innerHTML = `<i class="fa-solid fa-comment-sms" style="color: #00C853; font-size: 22px;"></i> <span>${message}</span>`;
+      toast.classList.add('active');
+      setTimeout(() => {
+        toast.classList.remove('active');
+      }, 7000);
+    }
+
+    function initiateRegistration() {
+      const name = document.getElementById('regUserName').value.trim();
+      const phone = document.getElementById('regPhone').value.trim();
+      const password = document.getElementById('regPassword').value.trim();
+
+      if (!name || !phone || !password) {
+        alert("Please fill in all fields (Name, Phone Number, Password)!");
+        return;
+      }
+
+      const existingUser = allRegisteredUsers.find(u => u.phone === phone);
+      if (existingUser && existingUser.name !== name) {
+        alert(`[Security Alert]\nThis phone number (${phone}) is already registered with another user.`);
+      }
+
+      const generatedOtpCode = Math.floor(1000 + Math.random() * 9000).toString();
+      currentRegisteringPhone = phone;
+      pendingUserData = { name, email: existingUser ? existingUser.email : "", phone, password, bio: "", avatar: currentProfileSrc, cover: currentCoverSrc, tokens: 50 };
+
+      db.ref('texphone/otps/' + phone).set({
+        code: generatedOtpCode,
+        timestamp: Date.now()
+      });
+
+      console.log("📲 [SMS Gateway Simulation] Sent OTP to phone:", phone, "Code:", generatedOtpCode);
+
+      document.getElementById('otpSubTextLabel').innerText = `A 4-digit verification OTP code has been dispatched via SMS to your phone number (${phone}).`;
+      document.getElementById('authOverlay').classList.remove('active');
+      document.getElementById('otpVerificationPage').classList.add('active');
+      pushPageState('otpVerificationPage');
+
+      showSmsNotificationToast(`📩 የ SMS ኖቲፊኬሽን: የ OTP ማረጋገጫ ኮድዎ [ ${generatedOtpCode} ] ወደ ስልክ ቁጥርዎ (${phone}) ተልኳል።`);
+    }
+
+    function verifyOtpCode() {
+      const enteredOtp = document.getElementById('otpCodeInput').value.trim();
+      if (!enteredOtp) {
+        alert("Please enter the 4-digit OTP code received via SMS.");
+        return;
+      }
+
+      if (!currentRegisteringPhone) {
+        alert("Registration session expired. Please sign up again.");
+        backToAuthFromOtp();
+        return;
+      }
+
+      showLoading("Verifying SMS OTP...");
+      db.ref('texphone/otps/' + currentRegisteringPhone).once('value', (snapshot) => {
+        hideLoading();
+        const otpData = snapshot.val();
+
+        if (!otpData || otpData.code !== enteredOtp) {
+          alert("Incorrect OTP code! Please check your SMS notification and enter the correct 4-digit code.");
+          return;
+        }
+
+        currentLoggedInUser = pendingUserData;
+        totalTokens = 50;
+        localStorage.setItem('texphone_user', JSON.stringify(currentLoggedInUser));
+        localStorage.setItem('texphone_tokens', totalTokens);
+        db.ref('texphone/users/' + currentLoggedInUser.name).set(currentLoggedInUser);
+
+        db.ref('texphone/otps/' + currentRegisteringPhone).remove();
+
+        document.getElementById('otpVerificationPage').classList.remove('active');
+        document.getElementById('otpCodeInput').value = "";
+        pendingUserData = null;
+        currentRegisteringPhone = null;
+
+        updateUserProfileUI();
+        updateAvatarUI();
+        alert("Successfully verified via SMS OTP and registered!");
+      });
+    }
+
+    function resendOtpCode() {
+      if (!currentRegisteringPhone) {
+        alert("No active phone number found.");
+        return;
+      }
+      const newOtpCode = Math.floor(1000 + Math.random() * 9000).toString();
+      db.ref('texphone/otps/' + currentRegisteringPhone).set({
+        code: newOtpCode,
+        timestamp: Date.now()
+      });
+
+      showSmsNotificationToast(`📩 አዲስ የ SMS ኖቲፊኬሽን: የ OTP ኮድዎ [ ${newOtpCode} ] ወደ ስልክ ቁጥርዎ (${currentRegisteringPhone}) እንደገና ተልኳል።`);
+    }
+
+    function backToAuthFromOtp() {
+      document.getElementById('otpVerificationPage').classList.remove('active');
+      document.getElementById('authOverlay').classList.add('active');
+    }
+
+    function playLoudMessageSound() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        [1000, 1400, 1800].forEach((freq, index) => {
+          setTimeout(() => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.9, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+          }, index * 130);
+        });
+      } catch(e) {}
+    }
+
+    function updateAvatarUI() {
+      if (currentProfileSrc) {
+        const topBox = document.getElementById('topProfileBox');
+        if(topBox) topBox.innerHTML = `<img src="${currentProfileSrc}" alt="Profile">`;
+        const rectBox = document.getElementById('profileRectBox');
+        if(rectBox) rectBox.innerHTML = `<img src="${currentProfileSrc}" alt="Profile">`;
+      }
+      if (currentCoverSrc) {
+        const coverSec = document.getElementById('profileCoverSection');
+        if(coverSec) coverSec.style.backgroundImage = `url('${currentCoverSrc}')`;
+      }
+      const tokenEl = document.getElementById('tokenBalance');
+      if(tokenEl) tokenEl.innerText = totalTokens;
+      const profileToken = document.getElementById('profileTokenCount');
+      if(profileToken) profileToken.innerText = totalTokens;
+    }
+
+    function loadAllGlobalPosts() {
+      const feedContainer = document.getElementById('feedContainer');
+      if (!feedContainer) return;
+      feedContainer.innerHTML = '';
+      userPostsList.forEach(post => {
+        renderPostToFeed(post, post.userAvatar || '');
+      });
+    }
+
+    function updateAllCountsOnFeed() {
+      userPostsList.forEach(post => {
+        const postCard = document.querySelector(`.post-card[data-id="${post.id}"]`);
+        if (!postCard) return;
+
+        const commentCountSpan = postCard.querySelector('.comment-count');
+        if (commentCountSpan) {
+          const cCount = commentsData.filter(c => c.postId === post.id).length;
+          commentCountSpan.innerText = cCount;
+        }
+
+        const likeCountSpan = postCard.querySelector('.like-count');
+        const likeBtn = postCard.querySelector('.like-btn-item');
+        if (likeCountSpan && likeBtn) {
+          const likesObj = postLikesData[post.id] || {};
+          const lCount = Object.keys(likesObj).length;
+          likeCountSpan.innerText = lCount;
+          if (currentLoggedInUser && likesObj[currentLoggedInUser.name]) {
+            likeBtn.classList.add('liked');
+          } else {
+            likeBtn.classList.remove('liked');
+          }
+        }
+
+        const repostCountSpan = postCard.querySelector('.repost-count');
+        const repostBtn = postCard.querySelector('.repost-btn-item');
+        if (repostCountSpan && repostBtn) {
+          const repostsObj = postRepostsData[post.id] || {};
+          const rCount = Object.keys(repostsObj).length;
+          repostCountSpan.innerText = rCount;
+          if (currentLoggedInUser && repostsObj[currentLoggedInUser.name]) {
+            repostBtn.classList.add('reposted');
+          } else {
+            repostBtn.classList.remove('reposted');
+          }
+        }
+      });
+    }
+
+    function updateUserProfileUI() {
+      if (!currentLoggedInUser) return;
+      document.getElementById('profileUserName').innerText = currentLoggedInUser.name;
+      const phoneEl = document.getElementById('profileUserPhone');
+      if (phoneEl) phoneEl.innerText = isPhoneHidden ? "Phone Hidden" : currentLoggedInUser.phone;
+      const bioEl = document.getElementById('profileUserBio');
+      if (bioEl) bioEl.innerText = currentLoggedInUser.bio || (currentLang === 'am' ? 'ባዮ አልተጻፈም' : 'No bio added yet');
+    }
+
+    const videoObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        const video = entry.target;
+        if (!entry.isIntersecting) {
+          video.pause();
+          video.muted = true;
+        } else {
+          document.querySelectorAll('.post-card video').forEach(v => {
+            if (v !== video) {
+              v.pause();
+              v.muted = true;
+            }
+          });
+          video.muted = false;
+          video.play().catch(() => {});
+        }
+      });
+    }, { threshold: 0.6 });
+
+    function openGallery() { 
+      pauseAllVideos();
+      document.getElementById('mediaPicker').click(); 
+    }
+
+    function handleFileSelection(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      selectedMediaFile = file;
+      const previewContainer = document.getElementById('previewMediaContainer');
+      previewContainer.innerHTML = '';
+      const fileURL = URL.createObjectURL(file);
+      if (file.type.startsWith('image/')) {
+        previewContainer.innerHTML = `<img src="${fileURL}" style="width: 100%; height: 100%; object-fit: cover;">`;
+      } else {
+        previewContainer.innerHTML = `<video src="${fileURL}" style="width: 100%; height: 100%; object-fit: cover;" controls autoplay></video>`;
+      }
+      document.getElementById('previewModal').classList.add('active');
+      pushPageState('previewModal');
+    }
+
+    async function uploadToCloudinary(file) {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+      const resourceType = file.type.startsWith('video/') ? 'video' : 'image';
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`, { method: 'POST', body: formData });
+      const data = await res.json();
+      return data.secure_url;
+    }
+
+    function openProfilePicker() { 
+      pauseAllVideos();
+      closeMenu(); 
+      document.getElementById('profilePicker').click(); 
+    }
+
+    async function handleProfileImageSelection(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      showLoading(translations[currentLang].uploadingProfile);
+      try {
+        const cloudUrl = await uploadToCloudinary(file);
+        currentProfileSrc = cloudUrl;
+        localStorage.setItem('texphone_avatar', currentProfileSrc);
+        if (currentLoggedInUser) {
+          currentLoggedInUser.avatar = currentProfileSrc;
+          localStorage.setItem('texphone_user', JSON.stringify(currentLoggedInUser));
+          await db.ref('texphone/users/' + currentLoggedInUser.name).set(currentLoggedInUser);
+        }
+        hideLoading();
+        updateAvatarUI();
+        alert(currentLang === 'am' ? "የፕሮፋይል ፎቶ ተቀይሯል!" : "Profile photo updated!");
+      } catch(e) {
+        hideLoading();
+        alert("Error: " + e.message);
+      }
+    }
+
+    function openCoverPicker() {
+      pauseAllVideos();
+      closeMenu();
+      document.getElementById('coverPicker').click();
+    }
+
+    async function handleCoverSelection(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      showLoading(translations[currentLang].uploadingCover);
+      try {
+        const cloudUrl = await uploadToCloudinary(file);
+        currentCoverSrc = cloudUrl;
+        localStorage.setItem('texphone_cover', currentCoverSrc);
+        if (currentLoggedInUser) {
+          currentLoggedInUser.cover = currentCoverSrc;
+          localStorage.setItem('texphone_user', JSON.stringify(currentLoggedInUser));
+          await db.ref('texphone/users/' + currentLoggedInUser.name).set(currentLoggedInUser);
+        }
+        hideLoading();
+        updateAvatarUI();
+        alert(currentLang === 'am' ? "የሽፋን ፎቶ ተቀይሯል!" : "Cover photo updated!");
+      } catch(e) {
+        hideLoading();
+        alert("Error: " + e.message);
+      }
+    }
+
+    async function confirmPublishPost() {
+      if (!selectedMediaFile || !currentLoggedInUser) return;
+      showLoading(translations[currentLang].publishing);
+      try {
+        const cloudUrl = await uploadToCloudinary(selectedMediaFile);
+        const postId = Date.now();
+        const isVideo = selectedMediaFile.type.startsWith('video/');
+
+        const postObject = {
+          id: postId,
+          url: cloudUrl,
+          isVideo: isVideo,
+          userName: currentLoggedInUser.name,
+          userAvatar: currentProfileSrc
+        };
+        
+        await db.ref('texphone/posts/' + postId).set(postObject);
+        hideLoading();
+        alert(currentLang === 'am' ? "በተሳካ ሁኔታ ተለጥፏል!" : "Posted successfully!");
+        selectedMediaFile = null;
+        document.getElementById('mediaPicker').value = "";
+        cancelPublishPost();
+      } catch (e) {
+        hideLoading();
+        alert("Error: " + e.message);
+      }
+    }
+
+    function cancelPublishPost() {
+      document.getElementById('previewModal').classList.remove('active');
+    }
+
+    function renderPostToFeed(postObj, userImgSrc) {
+      const feedContainer = document.getElementById('feedContainer');
+      if (!feedContainer) return;
+      const postCard = document.createElement('div');
+      postCard.className = 'post-card';
+      postCard.setAttribute('data-id', postObj.id);
+
+      const moreBtn = document.createElement('button');
+      moreBtn.className = 'more-options-btn';
+      moreBtn.innerHTML = '<i class="fa-solid fa-ellipsis-vertical"></i>';
+      moreBtn.onclick = () => openPostOptions(postObj);
+      postCard.appendChild(moreBtn);
+
+      const postUserName = postObj.userName || '';
+      const leftProfile = document.createElement('div');
+      leftProfile.className = 'post-left-profile';
+      leftProfile.innerHTML = `
+        <span class="poster-name-label" onclick="openProfilePage('${postUserName}', '${userImgSrc}')">${postUserName}</span>
+        <div class="user-info-box" onclick="openProfilePage('${postUserName}', '${userImgSrc}')">
+          ${userImgSrc ? `<img src="${userImgSrc}" alt="Profile">` : `<i class="fa-solid fa-user"></i>`}
+        </div>
+      `;
+      postCard.appendChild(leftProfile);
+
+      const commentCount = commentsData.filter(c => c.postId === postObj.id).length;
+      const likesObj = postLikesData[postObj.id] || {};
+      const likeCount = Object.keys(likesObj).length;
+      const isLiked = currentLoggedInUser && likesObj[currentLoggedInUser.name];
+
+      const repostsObj = postRepostsData[postObj.id] || {};
+      const repostCount = Object.keys(repostsObj).length;
+      const isReposted = currentLoggedInUser && repostsObj[currentLoggedInUser.name];
+
+      const rightActions = document.createElement('div');
+      rightActions.className = 'post-right-actions';
+      rightActions.innerHTML = `
+        <div class="horizontal-expand-container">
+          <button class="right-action-item" onclick="openComments(${postObj.id})">
+            <i class="fa-solid fa-comment" style="color: #ffffff;"></i>
+            <span class="action-count comment-count">${commentCount}</span>
+          </button>
+        </div>
+        <button class="right-action-item like-btn-item ${isLiked ? 'liked' : ''}" onclick="toggleLikePost(${postObj.id})">
+          <span style="font-size: 16px;">✦</span>
+          <span class="action-count like-count">${likeCount}</span>
+        </button>
+        <button class="right-action-item repost-btn-item ${isReposted ? 'reposted' : ''}" onclick="toggleRepostPost(${postObj.id})">
+          <i class="fa-solid fa-retweet" style="color: #ffffff;"></i>
+          <span class="action-count repost-count">${repostCount}</span>
+        </button>
+      `;
+      postCard.appendChild(rightActions);
+
+      if (!postObj.isVideo) {
+        const img = document.createElement('img');
+        img.src = postObj.url;
+        img.className = 'post-media';
+        postCard.appendChild(img);
+      } else {
+        const video = document.createElement('video');
+        video.src = postObj.url;
+        if (postObj.url && postObj.url.includes('cloudinary.com')) {
+          video.poster = postObj.url.replace(/\.[^/.]+$/, ".jpg");
+        }
+        video.className = 'post-media';
+        video.controls = true;
+        video.muted = true;
+        video.autoplay = true;
+        video.loop = true;
+        video.playsInline = true;
+        postCard.appendChild(video);
+        videoObserver.observe(video);
+      }
+      feedContainer.appendChild(postCard);
+    }
+
+    function toggleLikePost(postId) {
+      if (!currentLoggedInUser) {
+        alert("Please sign in first.");
+        return;
+      }
+      const userName = currentLoggedInUser.name;
+      const likeRef = db.ref(`texphone/likes/${postId}/${userName}`);
+      likeRef.once('value', (snapshot) => {
+        if (snapshot.exists()) {
+          likeRef.remove();
+        } else {
+          likeRef.set(true);
+        }
+      });
+    }
+
+    function toggleRepostPost(postId) {
+      if (!currentLoggedInUser) {
+        alert("Please sign in first.");
+        return;
+      }
+      const userName = currentLoggedInUser.name;
+      const repostRef = db.ref(`texphone/reposts/${postId}/${userName}`);
+      repostRef.once('value', (snapshot) => {
+        if (snapshot.exists()) {
+          repostRef.remove();
+          alert("Repost removed.");
+        } else {
+          repostRef.set(true);
+          alert("Post reposted successfully!");
+        }
+      });
+    }
+
+    function openPostOptions(postObj) {
+      pauseAllVideos();
+      currentActivePost = postObj;
+      document.getElementById('postOptionsModal').classList.add('active');
+    }
+
+    function closePostOptions() {
+      document.getElementById('postOptionsModal').classList.remove('active');
+    }
+
+    function downloadThisPost() {
+      if (!currentActivePost) return;
+      const a = document.createElement('a');
+      a.href = currentActivePost.url;
+      a.target = '_blank';
+      a.download = `post_${currentActivePost.id}.${currentActivePost.isVideo ? 'mp4' : 'jpg'}`;
+      a.click();
+      closePostOptions();
+    }
+
+    function markNoInterest() {
+      if (!currentActivePost) return;
+      document.querySelector(`.post-card[data-id="${currentActivePost.id}"]`)?.remove();
+      closePostOptions();
+    }
+
+    function openProfilePage(targetUser = null, targetAvatar = null) {
+      pauseAllVideos();
+      closeMenu();
+      closeComments();
+      if (!currentLoggedInUser) return;
+      document.getElementById('profilePage').classList.add('active');
+      pushPageState('profilePage');
+      const isOwnProfile = !targetUser || targetUser === currentLoggedInUser.name;
+      const userName = isOwnProfile ? currentLoggedInUser.name : targetUser;
+      currentViewingProfileUser = userName;
+      
+      document.getElementById('profileHeaderTitle').innerText = isOwnProfile ? "My Profile" : `${userName}'s Profile`;
+      document.getElementById('profileUserName').innerText = userName;
+
+      const walletSection = document.getElementById('profileWalletSection');
+      if (walletSection) {
+        walletSection.style.display = isOwnProfile ? 'flex' : 'none';
+      }
+      
+      let targetUserObj = allRegisteredUsers.find(u => u.name === userName);
+      const userPhone = targetUserObj ? targetUserObj.phone : "";
+      const userBio = targetUserObj ? targetUserObj.bio : "";
+
+      document.getElementById('profileUserPhone').innerText = isOwnProfile && !isPhoneHidden ? currentLoggedInUser.phone : (isPhoneHidden ? "Phone Hidden" : userPhone);
+      document.getElementById('profileUserBio').innerText = isOwnProfile ? (currentLoggedInUser.bio || (currentLang === 'am' ? 'ባዮ አልተጻፈም' : 'No bio added yet')) : (userBio || (currentLang === 'am' ? 'ባዮ አልተጻፈም' : 'No bio added yet'));
+      
+      const rectBox = document.getElementById('profileRectBox');
+      if (isOwnProfile && currentProfileSrc) {
+        rectBox.innerHTML = `<img src="${currentProfileSrc}" alt="Profile">`;
+      } else if (targetAvatar) {
+        rectBox.innerHTML = `<img src="${targetAvatar}" alt="Profile">`;
+      } else if (targetUserObj && targetUserObj.avatar) {
+        rectBox.innerHTML = `<img src="${targetUserObj.avatar}" alt="Profile">`;
+      } else {
+        rectBox.innerHTML = `<i class="fa-solid fa-user"></i>`;
+      }
+
+      const coverSec = document.getElementById('profileCoverSection');
+      if (isOwnProfile && currentCoverSrc) {
+        coverSec.style.backgroundImage = `url('${currentCoverSrc}')`;
+      } else if (targetUserObj && targetUserObj.cover) {
+        coverSec.style.backgroundImage = `url('${targetUserObj.cover}')`;
+      } else {
+        coverSec.style.backgroundImage = 'none';
+      }
+
+      renderProfilePostsGrid(userName, isOwnProfile);
+    }
+
+    function closeProfilePage(fromPop = false) { 
+      document.getElementById('profilePage').classList.remove('active'); 
+    }
+
+    function renderProfilePostsGrid(filterUser, isOwnProfile) {
+      const gridContainer = document.getElementById('userPostsGrid');
+      gridContainer.innerHTML = "";
+      const postsToDisplay = filterUser ? userPostsList.filter(p => p.userName === filterUser) : userPostsList;
+      
+      postsToDisplay.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'grid-post-item';
+        if (isOwnProfile) {
+          item.innerHTML = `<input type="checkbox" class="post-select-checkbox" value="${p.id}" style="position:absolute; top:6px; left:6px; z-index:5;">`;
+        }
+        if (!p.isVideo) {
+          item.innerHTML += `<img src="${p.url}" class="grid-post-media">`;
+          item.onclick = (e) => { if(e.target.tagName !== 'INPUT') openProfileVideoModal(p.url, false); };
+        } else {
+          item.innerHTML += `<video src="${p.url}" class="grid-post-media" muted></video>`;
+          item.onclick = (e) => { if(e.target.tagName !== 'INPUT') openProfileVideoModal(p.url, true); };
+        }
+        gridContainer.appendChild(item);
+      });
+    }
+
+    function openProfileVideoModal(url, isVideo) {
+      pauseAllVideos();
+      const modal = document.getElementById('profileVideoModal');
+      const container = document.getElementById('profileVideoContainer');
+      const downloadBtn = document.getElementById('downloadMediaBtn');
+      if (downloadBtn) {
+        downloadBtn.href = url;
+        downloadBtn.setAttribute('download', 'media_file');
+      }
+      container.innerHTML = isVideo ? `<video src="${url}" style="width: 100%; height: 100%; object-fit: contain;" controls autoplay></video>` : `<img src="${url}" style="width: 100%; height: 100%; object-fit: contain;">`;
+      modal.classList.add('active');
+    }
+
+    function closeProfileVideoModal() {
+      document.getElementById('profileVideoModal').classList.remove('active');
+      document.getElementById('profileVideoContainer').innerHTML = '';
+    }
+
+    function deleteSelectedPosts() {
+      const selected = Array.from(document.querySelectorAll('.post-select-checkbox:checked')).map(cb => Number(cb.value));
+      if (selected.length === 0) { alert("Please select posts to delete."); return; }
+      if (confirm(`Delete ${selected.length} post(s)?`)) {
+        selected.forEach(id => db.ref('texphone/posts/' + id).remove());
+        renderProfilePostsGrid(currentLoggedInUser.name, true);
+      }
+    }
+
+    function downloadSelectedPosts() {
+      Array.from(document.querySelectorAll('.post-select-checkbox:checked')).forEach(cb => {
+        const post = userPostsList.find(p => p.id == cb.value);
+        if (post) {
+          const a = document.createElement('a');
+          a.href = post.url;
+          a.download = `post_${post.id}`;
+          a.click();
+        }
+      });
+    }
+
+    function profileConnectAction() {
+      if (!currentLoggedInUser || !currentViewingProfileUser) return;
+      if (currentViewingProfileUser === currentLoggedInUser.name) {
+        alert("You cannot connect with yourself.");
+        return;
+      }
+      const key = `${currentLoggedInUser.name}_to_${currentViewingProfileUser}`;
+      db.ref('texphone/requests/' + key).set('pending');
+      alert("Friendship request sent successfully!");
+    }
+
+    function logoutUser() { localStorage.removeItem('texphone_user'); location.reload(); }
+    
+    function openMenu() { 
+      pauseAllVideos();
+      document.getElementById('sidebarMenu').classList.add('active'); 
+      document.getElementById('menuOverlay').classList.add('active'); 
+      pushPageState('sidebarMenu');
+    }
+    
+    function closeMenu(fromPop = false) { 
+      document.getElementById('sidebarMenu').classList.remove('active'); 
+      document.getElementById('menuOverlay').classList.remove('active'); 
+    }
+
+    function openDiscoverPage() { 
+      pauseAllVideos();
+      document.getElementById('discoverPage').classList.add('active'); 
+      pushPageState('discoverPage');
+      renderDiscoverGrid(); 
+      const discoverBadge = document.getElementById('discoverBadge');
+      if(discoverBadge) { discoverBadge.innerText = '0'; discoverBadge.classList.remove('active'); }
+    }
+    
+    function closeDiscoverPage(fromPop = false) { 
+      document.getElementById('discoverPage').classList.remove('active'); 
+    }
+
+    function renderDiscoverGrid() {
+      const grid = document.getElementById('discoverGrid');
+      grid.innerHTML = "";
+      userPostsList.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'discover-grid-item';
+        item.innerHTML = p.isVideo ? `<video src="${p.url}" class="discover-grid-media" muted></video>` : `<img src="${p.url}" class="discover-grid-media">`;
+        item.onclick = () => openProfileVideoModal(p.url, p.isVideo);
+        grid.appendChild(item);
+      });
+    }
+
+    function editUserName() {
+      closeMenu();
+      const newName = prompt(currentLang === 'am' ? "አዲስ ስም ያስገቡ:" : "Enter new name:", currentLoggedInUser.name);
+      if (newName && newName.trim()) {
+        const oldName = currentLoggedInUser.name;
+        currentLoggedInUser.name = newName.trim();
+        localStorage.setItem('texphone_user', JSON.stringify(currentLoggedInUser));
+        db.ref('texphone/users/' + oldName).remove();
+        db.ref('texphone/users/' + currentLoggedInUser.name).set(currentLoggedInUser);
+        updateUserProfileUI();
+        alert(currentLang === 'am' ? "ስምዎ ተቀይሯል!" : "Name updated successfully!");
+      }
+    }
+
+    function editUserBio() {
+      closeMenu();
+      const bioText = prompt(currentLang === 'am' ? "ባዮ (Bio) ያስገቡ:" : "Enter your bio:", currentLoggedInUser.bio || "");
+      if (bioText !== null) {
+        currentLoggedInUser.bio = bioText.trim();
+        localStorage.setItem('texphone_user', JSON.stringify(currentLoggedInUser));
+        db.ref('texphone/users/' + currentLoggedInUser.name).set(currentLoggedInUser);
+        updateUserProfileUI();
+        alert(currentLang === 'am' ? "ባዮ ተዘምኗል!" : "Bio updated successfully!");
+      }
+    }
+
+    function togglePhoneVisibility() {
+      isPhoneHidden = !isPhoneHidden;
+      applyLanguage();
+      alert(isPhoneHidden ? (currentLang === 'am' ? "ስልክ ቁጥርዎ ተደብቋል" : "Phone number hidden.") : (currentLang === 'am' ? "ስልክ ቁጥርዎ ታይቷል" : "Phone number visible."));
+    }
+
+    function openFollowersPage() {
+      closeMenu();
+      const container = document.getElementById('genericPageContainer');
+      document.getElementById('genericPageTitle').innerText = currentLang === 'am' ? "ተከታዮች (Followers)" : "Followers";
+      container.innerHTML = "";
+      
+      const followers = allRegisteredUsers.filter(u => {
+        if (u.name === currentLoggedInUser?.name) return false;
+        const k = `${u.name}_to_${currentLoggedInUser.name}`;
+        return connectRequests[k] === 'accepted';
+      });
+
+      if (followers.length === 0) {
+        container.innerHTML = `<div style="text-align:center; color:#888; padding:20px;">${currentLang === 'am' ? "እስካሁን ተከታይ የለዎትም" : "No followers yet."}</div>`;
+      } else {
+        followers.forEach(f => {
+          const profileHTML = f.avatar ? `<img src="${f.avatar}" alt="Profile">` : `<i class="fa-solid fa-user"></i>`;
+          const item = document.createElement('div');
+          item.className = 'user-connect-item';
+          item.innerHTML = `
+            <div class="user-connect-info" onclick="openProfilePage('${f.name}', '${f.avatar || ''}')" style="cursor:pointer;">
+              <div class="list-profile-rect">${profileHTML}</div>
+              <div class="user-connect-name">${f.name}</div>
+            </div>
+            <button class="btn-connect" onclick="openChatPage('${f.name}')">Chat</button>
+          `;
+          container.appendChild(item);
+        });
+      }
+      document.getElementById('genericPage').classList.add('active');
+      pushPageState('genericPage');
+    }
+
+    function openFollowingPage() {
+      closeMenu();
+      const container = document.getElementById('genericPageContainer');
+      document.getElementById('genericPageTitle').innerText = currentLang === 'am' ? "የምትከተላቸው (Following)" : "Following";
+      container.innerHTML = "";
+      
+      const following = allRegisteredUsers.filter(u => {
+        if (u.name === currentLoggedInUser?.name) return false;
+        const k = `${currentLoggedInUser.name}_to_${u.name}`;
+        return connectRequests[k] === 'accepted';
+      });
+
+      if (following.length === 0) {
+        container.innerHTML = `<div style="text-align:center; color:#888; padding:20px;">${currentLang === 'am' ? "እስካሁን የምትከተለው ሰው የለም" : "Not following anyone yet."}</div>`;
+      } else {
+        following.forEach(f => {
+          const profileHTML = f.avatar ? `<img src="${f.avatar}" alt="Profile">` : `<i class="fa-solid fa-user"></i>`;
+          const item = document.createElement('div');
+          item.className = 'user-connect-item';
+          item.innerHTML = `
+            <div class="user-connect-info" onclick="openProfilePage('${f.name}', '${f.avatar || ''}')" style="cursor:pointer;">
+              <div class="list-profile-rect">${profileHTML}</div>
+              <div class="user-connect-name">${f.name}</div>
+            </div>
+            <button class="btn-connect" onclick="openChatPage('${f.name}')">Chat</button>
+          `;
+          container.appendChild(item);
+        });
+      }
+      document.getElementById('genericPage').classList.add('active');
+      pushPageState('genericPage');
+    }
+
+    function openNotifications() {
+      closeMenu();
+      const container = document.getElementById('genericPageContainer');
+      document.getElementById('genericPageTitle').innerText = currentLang === 'am' ? "ማሳወቂያዎች (Notifications)" : "Notifications";
+      container.innerHTML = `<div style="text-align:center; color:#888; padding:20px;">${currentLang === 'am' ? "ምንም ማሳወቂያ የለም" : "No new notifications."}</div>`;
+      document.getElementById('genericPage').classList.add('active');
+      pushPageState('genericPage');
+    }
+
+    function openPrivacySettings() {
+      closeMenu();
+      alert("Privacy settings are up to date.");
+    }
+
+    function openSecuritySettings() {
+      closeMenu();
+      alert("Account security is secured with Firebase.");
+    }
+
+    function changeUserPassword() {
+      closeMenu();
+      const newPass = prompt(currentLang === 'am' ? "አዲስ የሚስጥር ቁጥር ያስገቡ:" : "Enter new password:");
+      if (newPass && newPass.trim()) {
+        currentLoggedInUser.password = newPass.trim();
+        localStorage.setItem('texphone_user', JSON.stringify(currentLoggedInUser));
+        db.ref('texphone/users/' + currentLoggedInUser.name).set(currentLoggedInUser);
+        alert(currentLang === 'am' ? "የሚስጥር ቁጥርዎ ተቀይሯል!" : "Password changed successfully!");
+      }
+    }
+
+    function toggleDarkMode() {
+      isDarkMode = !isDarkMode;
+      localStorage.setItem('texphone_dark', isDarkMode);
+      if (isDarkMode) {
+        document.body.classList.add('light-mode');
+      } else {
+        document.body.classList.remove('light-mode');
+      }
+      closeMenu();
+    }
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'en' ? 'am' : 'en';
+      localStorage.setItem('texphone_lang', currentLang);
+      applyLanguage();
+      closeMenu();
+    }
+
+    function openAppInfo() {
+      closeMenu();
+      document.getElementById('appInfoModal').classList.add('active');
+      pushPageState('appInfoModal');
+    }
+
+    function closeAppInfo() {
+      document.getElementById('appInfoModal').classList.remove('active');
+    }
+
+    function openConnectPage() {
+      pauseAllVideos();
+      document.getElementById('connectPage').classList.add('active');
+      pushPageState('connectPage');
+      renderConnectList();
+      const connectBadge = document.getElementById('connectBadge');
+      if (connectBadge) {
+        connectBadge.innerText = '0';
+        connectBadge.classList.remove('active');
+      }
+    }
+
+    function closeConnectPage(fromPop = false) {
+      document.getElementById('connectPage').classList.remove('active');
+    }
+
+    function renderConnectList() {
+      const container = document.getElementById('connectListContainer');
+      if (!container || !currentLoggedInUser) return;
+      container.innerHTML = "";
+
+      allRegisteredUsers.forEach(u => {
+        if (u.name === currentLoggedInUser.name) return;
+
+        const reqKey1 = `${u.name}_to_${currentLoggedInUser.name}`;
+        const reqKey2 = `${currentLoggedInUser.name}_to_${u.name}`;
+        const status1 = connectRequests[reqKey1];
+        const status2 = connectRequests[reqKey2];
+
+        if (status1 === 'accepted' || status2 === 'accepted') return;
+
+        const item = document.createElement('div');
+        item.className = 'user-connect-item';
+
+        const profileHTML = u.avatar ? `<img src="${u.avatar}" alt="Profile">` : `<i class="fa-solid fa-user"></i>`;
+        
+        let actionHTML = '';
+        if (status1 === 'pending') {
+          actionHTML = `
+            <div class="connect-action-group">
+              <button class="btn-accept" onclick="acceptConnectRequest('${u.name}')">Accept</button>
+              <button class="btn-cancel" onclick="cancelConnectRequest('${u.name}')">Reject</button>
+            </div>
+          `;
+        } else if (status2 === 'pending') {
+          actionHTML = `<button class="btn-cancel" disabled>Requested</button>`;
+        } else {
+          actionHTML = `<button class="btn-connect" onclick="sendConnectRequest('${u.name}')">Connect</button>`;
+        }
+
+        item.innerHTML = `
+          <div class="user-connect-info" onclick="openProfilePage('${u.name}', '${u.avatar || ''}')" style="cursor:pointer;">
+            <div class="list-profile-rect">${profileHTML}</div>
+            <div class="user-connect-name">${u.name}</div>
+          </div>
+          ${actionHTML}
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function sendConnectRequest(targetName) {
+      if (!currentLoggedInUser) return;
+      const key = `${currentLoggedInUser.name}_to_${targetName}`;
+      db.ref('texphone/requests/' + key).set('pending');
+      alert("Connection request sent.");
+    }
+
+    function acceptConnectRequest(fromName) {
+      if (!currentLoggedInUser) return;
+      const key = `${fromName}_to_${currentLoggedInUser.name}`;
+      db.ref('texphone/requests/' + key).set('accepted');
+      alert("Connection accepted!");
+    }
+
+    function cancelConnectRequest(fromName) {
+      if (!currentLoggedInUser) return;
+      const key = `${fromName}_to_${currentLoggedInUser.name}`;
+      db.ref('texphone/requests/' + key).remove();
+    }
+
+    function openTextPage() {
+      pauseAllVideos();
+      document.getElementById('textPage').classList.add('active');
+      pushPageState('textPage');
+      renderTextList();
+      const textBadge = document.getElementById('textBadge');
+      if (textBadge) {
+        textBadge.innerText = '0';
+        textBadge.classList.remove('active');
+      }
+    }
+
+    function closeTextPage(fromPop = false) {
+      document.getElementById('textPage').classList.remove('active');
+    }
+
+    function renderTextList() {
+      const container = document.getElementById('textListContainer');
+      if (!container || !currentLoggedInUser) return;
+      container.innerHTML = "";
+
+      const friends = allRegisteredUsers.filter(u => {
+        if (u.name === currentLoggedInUser.name) return false;
+        const k1 = `${u.name}_to_${currentLoggedInUser.name}`;
+        const k2 = `${currentLoggedInUser.name}_to_${u.name}`;
+        return connectRequests[k1] === 'accepted' || connectRequests[k2] === 'accepted';
+      });
+
+      if (friends.length === 0) {
+        container.innerHTML = `<div style="text-align:center; color:#888; padding:20px;">No friends in list yet. Connect with users first.</div>`;
+        return;
+      }
+
+      friends.forEach(f => {
+        const profileHTML = f.avatar ? `<img src="${f.avatar}" alt="Profile">` : `<i class="fa-solid fa-user"></i>`;
+        const room1 = `${currentLoggedInUser.name}_${f.name}`;
+        const room2 = `${f.name}_${currentLoggedInUser.name}`;
+        const roomKey = allChatMessages[room1] ? room1 : (allChatMessages[room2] ? room2 : room1);
+        
+        const msgs = allChatMessages[roomKey] ? Object.values(allChatMessages[roomKey]) : [];
+        const lastSeen = parseInt(localStorage.getItem('texphone_last_seen_' + roomKey)) || 0;
+        const unreadCount = msgs.filter(m => m.sender !== currentLoggedInUser.name && m.id > lastSeen).length;
+        const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1].text || (msgs[msgs.length - 1].media ? "Media attachment" : "") : "Tap to chat";
+
+        const item = document.createElement('div');
+        item.className = 'user-connect-item';
+        item.innerHTML = `
+          <div class="user-connect-info" onclick="openProfilePage('${f.name}', '${f.avatar || ''}')" style="cursor:pointer;">
+            <div class="list-profile-rect">${profileHTML}</div>
+            <div>
+              <div class="user-connect-name">${f.name}</div>
+              <div style="font-size: 12px; color: #64748b; margin-top: 2px; max-width: 160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${lastMsg}</div>
+            </div>
+          </div>
+          <div class="chat-btn-wrapper">
+            <span class="chat-list-badge ${unreadCount > 0 ? 'active' : ''}">${unreadCount}</span>
+            <button class="btn-connect" onclick="openChatPage('${f.name}')">Chat</button>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function openChatPage(friendName) {
+      pauseAllVideos();
+      currentChatFriend = friendName;
+      document.getElementById('chatPage').classList.add('active');
+      pushPageState('chatPage');
+      document.getElementById('chatFriendNameTitle').innerText = friendName;
+      
+      const friendObj = allRegisteredUsers.find(u => u.name === friendName);
+      const avatarBox = document.getElementById('chatFriendAvatar');
+      if (friendObj && friendObj.avatar) {
+        avatarBox.innerHTML = `<img src="${friendObj.avatar}" alt="Profile">`;
+      } else {
+        avatarBox.innerHTML = `<i class="fa-solid fa-user"></i>`;
+      }
+
+      const room1 = `${currentLoggedInUser.name}_${friendName}`;
+      const room2 = `${friendName}_${currentLoggedInUser.name}`;
+      const roomKey = allChatMessages[room1] ? room1 : (allChatMessages[room2] ? room2 : room1);
+      
+      const msgs = allChatMessages[roomKey] ? Object.values(allChatMessages[roomKey]) : [];
+      if (msgs.length > 0) {
+        localStorage.setItem('texphone_last_seen_' + roomKey, msgs[msgs.length - 1].id);
+      }
+      renderChatMessages();
+    }
+
+    function closeChatPage(fromPop = false) {
+      document.getElementById('chatPage').classList.remove('active');
+      currentChatFriend = null;
+    }
+
+    function renderChatMessages() {
+      const container = document.getElementById('chatMessagesContainer');
+      if (!container || !currentLoggedInUser || !currentChatFriend) return;
+      container.innerHTML = "";
+
+      const room1 = `${currentLoggedInUser.name}_${currentChatFriend}`;
+      const room2 = `${currentChatFriend}_${currentLoggedInUser.name}`;
+      const roomKey = allChatMessages[room1] ? room1 : (allChatMessages[room2] ? room2 : room1);
+      
+      const msgs = allChatMessages[roomKey] ? Object.values(allChatMessages[roomKey]) : [];
+      msgs.sort((a, b) => a.id - b.id);
+
+      msgs.forEach(m => {
+        const bubble = document.createElement('div');
+        bubble.className = `chat-bubble ${m.sender === currentLoggedInUser.name ? 'sent' : 'received'}`;
+        
+        let mediaHtml = '';
+        if (m.media) {
+          mediaHtml = m.isVideo ? 
+            `<video src="${m.media}" class="chat-bubble-media" onclick="openProfileVideoModal('${m.media}', true)"></video>` : 
+            `<img src="${m.media}" class="chat-bubble-media" onclick="openProfileVideoModal('${m.media}', false)">`;
+        }
+
+        const dateStr = new Date(m.id).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const checkIcon = m.sender === currentLoggedInUser.name ? 
+          `<i class="fa-solid fa-check-double" style="font-size:11px; color:#00C853; margin-left:3px;" title="Delivered & Sent"></i>` : '';
+
+        bubble.innerHTML = `
+          ${m.text ? `<span>${m.text}</span>` : ''}
+          ${mediaHtml}
+          <div class="chat-time-row">
+            <span class="chat-time">${dateStr}</span>
+            ${checkIcon}
+          </div>
+        `;
+        bubble.oncontextmenu = (e) => {
+          e.preventDefault();
+          openChatActionModal(m, roomKey);
+        };
+        container.appendChild(bubble);
+      });
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function sendChatMessage() {
+      const input = document.getElementById('chatMessageInput');
+      const text = input.value.trim();
+      if (!text || !currentLoggedInUser || !currentChatFriend) return;
+
+      const room1 = `${currentLoggedInUser.name}_${currentChatFriend}`;
+      const room2 = `${currentChatFriend}_${currentLoggedInUser.name}`;
+      const roomKey = allChatMessages[room1] ? room1 : (allChatMessages[room2] ? room2 : room1);
+
+      const msgId = Date.now();
+      const msgObj = { id: msgId, sender: currentLoggedInUser.name, text: text };
+
+      db.ref(`texphone/chats/${roomKey}/${msgId}`).set(msgObj);
+      input.value = "";
+      playLoudMessageSound();
+    }
+
+    function openChatPhotoGallery() { document.getElementById('chatPhotoPicker').click(); }
+    function openChatVideoGallery() { document.getElementById('chatVideoPicker').click(); }
+
+    function handleChatPhotoSelection(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      selectedChatMediaFile = file;
+      showChatPreview(file, false);
+    }
+
+    function handleChatVideoSelection(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      selectedChatMediaFile = file;
+      showChatPreview(file, true);
+    }
+
+    function showChatPreview(file, isVideo) {
+      const container = document.getElementById('chatPreviewMediaContainer');
+      const url = URL.createObjectURL(file);
+      container.innerHTML = isVideo ? `<video src="${url}" style="width:100%; height:100%; object-fit:cover;" controls></video>` : `<img src="${url}" style="width:100%; height:100%; object-fit:cover;">`;
+      document.getElementById('chatPreviewModal').classList.add('active');
+    }
+
+    async function confirmSendChatMedia() {
+      if (!selectedChatMediaFile || !currentLoggedInUser || !currentChatFriend) return;
+      showLoading(translations[currentLang].sendingMsg);
+      try {
+        const url = await uploadToCloudinary(selectedChatMediaFile);
+        const isVideo = selectedChatMediaFile.type.startsWith('video/');
+        const room1 = `${currentLoggedInUser.name}_${currentChatFriend}`;
+        const room2 = `${currentChatFriend}_${currentLoggedInUser.name}`;
+        const roomKey = allChatMessages[room1] ? room1 : (allChatMessages[room2] ? room2 : room1);
+
+        const msgId = Date.now();
+        const msgObj = { id: msgId, sender: currentLoggedInUser.name, text: "", media: url, isVideo: isVideo };
+        await db.ref(`texphone/chats/${roomKey}/${msgId}`).set(msgObj);
+        hideLoading();
+        cancelSendChatMedia();
+        playLoudMessageSound();
+      } catch(e) {
+        hideLoading();
+        alert("Error: " + e.message);
+      }
+    }
+
+    function cancelSendChatMedia() {
+      document.getElementById('chatPreviewModal').classList.remove('active');
+      selectedChatMediaFile = null;
+    }
+
+    function openChatActionModal(msgObj, roomKey) {
+      activeChatMsgIdForAction = msgObj.id;
+      activeChatMsgObjForAction = { ...msgObj, roomKey };
+      const isMine = msgObj.sender === currentLoggedInUser.name;
+      document.getElementById('chatEditOptionBtn').style.display = isMine ? 'block' : 'none';
+      document.getElementById('chatDeleteOptionBtn').style.display = 'block';
+      document.getElementById('chatBlockOptionBtn').style.display = isMine ? 'none' : 'block';
+      document.getElementById('chatActionModal').classList.add('active');
+    }
+
+    function closeChatActionModal() {
+      document.getElementById('chatActionModal').classList.remove('active');
+    }
+
+    function editSelectedChatMessage() {
+      closeChatActionModal();
+      if (!activeChatMsgObjForAction) return;
+      const newText = prompt("Edit message:", activeChatMsgObjForAction.text || "");
+      if (newText !== null) {
+        db.ref(`texphone/chats/${activeChatMsgObjForAction.roomKey}/${activeChatMsgIdForAction}/text`).set(newText.trim());
+      }
+    }
+
+    function deleteSelectedChatMessage() {
+      closeChatActionModal();
+      if (!activeChatMsgObjForAction) return;
+      db.ref(`texphone/chats/${activeChatMsgObjForAction.roomKey}/${activeChatMsgIdForAction}`).remove();
+    }
+
+    function blockUserFromChat() {
+      closeChatActionModal();
+      if (!currentChatFriend) return;
+      if (confirm(`Block ${currentChatFriend}?`)) {
+        blockedUsers.push(currentChatFriend);
+        db.ref(`texphone/blocked/${currentLoggedInUser.name}`).set(blockedUsers);
+        closeChatPage();
+        alert("User blocked successfully.");
+      }
+    }
+
+    function openSearchPage() {
+      pauseAllVideos();
+      document.getElementById('searchPage').classList.add('active');
+      pushPageState('searchPage');
+      filterGlobalSearch('');
+    }
+
+    function closeSearchPage(fromPop = false) {
+      document.getElementById('searchPage').classList.remove('active');
+    }
+
+    function filterGlobalSearch(query) {
+      const grid = document.getElementById('searchResultsGrid');
+      grid.innerHTML = "";
+      const q = query.toLowerCase().trim();
+
+      if (!q) {
+        grid.innerHTML = `<div style="text-align:center; color:#888; padding:20px;">Type a name to search users or posts...</div>`;
+        return;
+      }
+
+      const matchedUsers = allRegisteredUsers.filter(u => u.name !== currentLoggedInUser?.name && u.name.toLowerCase().includes(q));
+      const matchedPosts = userPostsList.filter(p => p.userName.toLowerCase().includes(q));
+
+      if (matchedUsers.length === 0 && matchedPosts.length === 0) {
+        grid.innerHTML = `<div style="text-align:center; color:#888; padding:20px;">No results found.</div>`;
+        return;
+      }
+
+      matchedUsers.forEach(u => {
+        const reqKey1 = `${u.name}_to_${currentLoggedInUser?.name}`;
+        const reqKey2 = `${currentLoggedInUser?.name}_to_${u.name}`;
+        const status1 = connectRequests[reqKey1];
+        const status2 = connectRequests[reqKey2];
+
+        let actionHTML = '';
+        if (status1 === 'accepted' || status2 === 'accepted') {
+          actionHTML = `<button class="btn-connect" onclick="openChatPage('${u.name}')">Chat</button>`;
+        } else if (status1 === 'pending') {
+          actionHTML = `
+            <div class="connect-action-group">
+              <button class="btn-accept" onclick="acceptConnectRequest('${u.name}'); filterGlobalSearch(document.getElementById('searchInput').value);">Accept</button>
+              <button class="btn-cancel" onclick="cancelConnectRequest('${u.name}'); filterGlobalSearch(document.getElementById('searchInput').value);">Reject</button>
+            </div>
+          `;
+        } else if (status2 === 'pending') {
+          actionHTML = `<button class="btn-cancel" disabled>Requested</button>`;
+        } else {
+          actionHTML = `<button class="btn-connect" onclick="sendConnectRequest('${u.name}'); alert('Request sent'); filterGlobalSearch(document.getElementById('searchInput').value);">Connect</button>`;
+        }
+
+        const item = document.createElement('div');
+        item.className = 'user-connect-item';
+        const profileHTML = u.avatar ? `<img src="${u.avatar}" alt="Profile">` : `<i class="fa-solid fa-user"></i>`;
+        item.innerHTML = `
+          <div class="user-connect-info" onclick="openProfilePage('${u.name}', '${u.avatar || ''}')" style="cursor:pointer;">
+            <div class="list-profile-rect">${profileHTML}</div>
+            <div class="user-connect-name">${u.name}</div>
+          </div>
+          ${actionHTML}
+        `;
+        grid.appendChild(item);
+      });
+
+      matchedPosts.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'user-connect-item';
+        item.style.cursor = 'pointer';
+        item.onclick = () => openProfileVideoModal(p.url, p.isVideo);
+
+        const mediaThumb = p.isVideo ? 
+          `<div class="list-profile-rect" style="background:#000;"><i class="fa-solid fa-video" style="color:#00C853;"></i></div>` : 
+          `<div class="list-profile-rect"><img src="${p.url}"></div>`;
+
+        item.innerHTML = `
+          <div class="user-connect-info">
+            ${mediaThumb}
+            <div>
+              <div class="user-connect-name">${p.isVideo ? 'Video' : 'Post'} by ${p.userName}</div>
+              <div style="font-size:11px; color:#64748b;">Tap to watch/view</div>
+            </div>
+          </div>
+          <button class="btn-connect" style="pointer-events:none;"><i class="fa-solid fa-play"></i></button>
+        `;
+        grid.appendChild(item);
+      });
+    }
+
+    function openGiftShop() {
+      pauseAllVideos();
+      document.getElementById('giftShopPage').classList.add('active');
+      pushPageState('giftShopPage');
+    }
+
+    function closeGiftShop(fromPop = false) {
+      document.getElementById('giftShopPage').classList.remove('active');
+    }
+
+    function selectTokenToBuy(tokens, birr) {
+      selectedTokenAmount = tokens;
+      selectedTokenBirr = birr;
+      document.getElementById('purchaseSummaryText').innerText = `${tokens} Token - ${birr} Birr`;
+      document.getElementById('purchaseModal').classList.add('active');
+      pushPageState('purchaseModal');
+    }
+
+    function closePurchaseModal() {
+      document.getElementById('purchaseModal').classList.remove('active');
+    }
+
+    function confirmTokenPurchase() {
+      const name = document.getElementById('buyFullName').value.trim();
+      const phone = document.getElementById('buyPhone').value.trim();
+      const bank = document.getElementById('buyBank').value;
+      const account = document.getElementById('buyAccount').value.trim();
+
+      if (!name || !phone || !bank || !account) {
+        alert("Please fill all payment fields.");
+        return;
+      }
+
+      totalTokens += selectedTokenAmount;
+      localStorage.setItem('texphone_tokens', totalTokens);
+      if (currentLoggedInUser) {
+        currentLoggedInUser.tokens = totalTokens;
+        localStorage.setItem('texphone_user', JSON.stringify(currentLoggedInUser));
+        db.ref('texphone/users/' + currentLoggedInUser.name).set(currentLoggedInUser);
+      }
+      updateAvatarUI();
+      closePurchaseModal();
+      closeGiftShop();
+      alert(`Successfully purchased ${selectedTokenAmount} tokens!`);
+    }
+
+    function openCoinWallet() {
+      pauseAllVideos();
+      document.getElementById('coinWalletPage').classList.add('active');
+      pushPageState('coinWalletPage');
+    }
+
+    function closeCoinWallet(fromPop = false) {
+      document.getElementById('coinWalletPage').classList.remove('active');
+    }
+
+    function submitWithdrawal() {
+      const name = document.getElementById('withdrawName').value.trim();
+      const phone = document.getElementById('withdrawPhone').value.trim();
+      const bank = document.getElementById('withdrawBank').value;
+      const account = document.getElementById('withdrawAccount').value.trim();
+      const tokensToWithdraw = parseInt(document.getElementById('withdrawTokens').value);
+
+      if (!name || !phone || !bank || !account || !tokensToWithdraw) {
+        alert("Please fill all withdrawal fields.");
+        return;
+      }
+
+      if (tokensToWithdraw > totalTokens) {
+        alert("Insufficient token balance.");
+        return;
+      }
+
+      totalTokens -= tokensToWithdraw;
+      localStorage.setItem('texphone_tokens', totalTokens);
+      if (currentLoggedInUser) {
+        currentLoggedInUser.tokens = totalTokens;
+        localStorage.setItem('texphone_user', JSON.stringify(currentLoggedInUser));
+        db.ref('texphone/users/' + currentLoggedInUser.name).set(currentLoggedInUser);
+      }
+      updateAvatarUI();
+      alert(`Withdrawal request for ${tokensToWithdraw} tokens submitted successfully!`);
+      closeCoinWallet();
+    }
+
+    function openComments(postId) {
+      pauseAllVideos();
+      currentPostForComment = userPostsList.find(p => p.id === postId);
+      document.getElementById('commentsModal').classList.add('active');
+      pushPageState('commentsModal');
+
+      const giftBtn = document.getElementById('commentGiftBtn');
+      if (currentPostForComment && currentPostForComment.userName === currentLoggedInUser?.name) {
+        giftBtn.style.display = 'block';
+      } else {
+        giftBtn.style.display = 'block';
+      }
+
+      renderComments();
+      renderTopGifters(postId);
+    }
+
+    function closeComments(fromPop = false) {
+      document.getElementById('commentsModal').classList.remove('active');
+      currentPostForComment = null;
+      cancelReplyState();
+    }
+
+    function toggleGiftPopup() {
+      if (totalTokens <= 0) {
+        alert("You have 0 coin balance. Please top up tokens in the Gift Shop to send gifts.");
+        return;
+      }
+      const popup = document.getElementById('giftPopup');
+      popup.classList.toggle('active');
+    }
+
+    function selectGift(giftName, icon, tokenCost, el) {
+      if (totalTokens <= 0 || tokenCost > totalTokens) {
+        alert("Insufficient coin balance to select this gift.");
+        return;
+      }
+
+      if (currentPostForComment && currentPostForComment.userName === currentLoggedInUser.name) {
+        alert("Warning: You cannot send a gift to your own post!");
+        toggleGiftPopup();
+        return;
+      }
+
+      document.querySelectorAll('.gift-option').forEach(opt => opt.classList.remove('selected'));
+      el.classList.add('selected');
+      selectedGift = { name: giftName, icon: icon, cost: tokenCost };
+      document.getElementById('commentInput').placeholder = `Send ${giftName} (${tokenCost} tokens)...`;
+      toggleGiftPopup();
+    }
+
+    function submitComment() {
+      const input = document.getElementById('commentInput');
+      const text = input.value.trim();
+      if ((!text && !selectedGift) || !currentLoggedInUser || !currentPostForComment) return;
+
+      if (selectedGift) {
+        if (totalTokens <= 0) {
+          alert("You have 0 coin balance. Cannot send gifts.");
+          return;
+        }
+
+        if (currentPostForComment.userName === currentLoggedInUser.name) {
+          alert("Warning: You cannot send a gift to your own post!");
+          selectedGift = null;
+          return;
+        }
+
+        if (selectedGift.cost > totalTokens) {
+          alert("Insufficient tokens for this gift.");
+          return;
+        }
+
+        totalTokens -= selectedGift.cost;
+        localStorage.setItem('texphone_tokens', totalTokens);
+        currentLoggedInUser.tokens = totalTokens;
+        db.ref('texphone/users/' + currentLoggedInUser.name).set(currentLoggedInUser);
+        updateAvatarUI();
+
+        const giftId = Date.now();
+        db.ref(`texphone/gifts/${currentPostForComment.id}/${giftId}`).set({
+          sender: currentLoggedInUser.name,
+          avatar: currentProfileSrc,
+          giftName: selectedGift.name,
+          icon: selectedGift.icon,
+          cost: selectedGift.cost
+        });
+
+        const recipientName = currentPostForComment.userName;
+        if (recipientName) {
+          db.ref('texphone/users/' + recipientName).once('value', (snapshot) => {
+            const recipientUser = snapshot.val();
+            const recipientTokens = (recipientUser && recipientUser.tokens !== undefined) ? recipientUser.tokens : 50;
+            const updatedRecipientTokens = recipientTokens + selectedGift.cost;
+            db.ref('texphone/users/' + recipientName + '/tokens').set(updatedRecipientTokens);
+          });
+        }
+      }
+
+      const commentId = Date.now();
+      const commentObj = {
+        id: commentId,
+        postId: currentPostForComment.id,
+        userName: currentLoggedInUser.name,
+        userAvatar: currentProfileSrc,
+        text: text || (selectedGift ? `Sent a gift: ${selectedGift.icon} ${selectedGift.name}` : ''),
+        replyTo: replyingToCommentId
+      };
+
+      db.ref('texphone/comments/' + commentId).set(commentObj);
+      input.value = "";
+      selectedGift = null;
+      cancelReplyState();
+    }
+
+    function renderComments() {
+      const list = document.getElementById('commentsList');
+      if (!list || !currentPostForComment) return;
+      list.innerHTML = "";
+
+      const postComments = commentsData.filter(c => c.postId === currentPostForComment.id);
+      const parentComments = postComments.filter(c => !c.replyTo);
+
+      if (parentComments.length === 0) {
+        list.innerHTML = `<div style="text-align:center; color:#888; padding:20px;">No comments yet. Be the first!</div>`;
+        return;
+      }
+
+      parentComments.forEach((c, index) => {
+        const commentNumber = index + 1;
+        const replies = postComments.filter(r => r.replyTo === c.id);
+        const itemHTML = createCommentItemHTML(c, commentNumber, replies);
+        list.appendChild(itemHTML);
+      });
+    }
+
+    function createCommentItemHTML(c, numLabel, replies) {
+      const item = document.createElement('div');
+      item.className = 'comment-item';
+      
+      const avatarHTML = c.userAvatar ? `<img src="${c.userAvatar}" alt="Profile">` : `<i class="fa-solid fa-user"></i>`;
+      
+      const likesObj = commentLikesData[c.id] || {};
+      const likeCount = Object.keys(likesObj).length;
+      const isLiked = currentLoggedInUser && likesObj[currentLoggedInUser.name];
+
+      let repliesHTML = '';
+      if (replies && replies.length > 0) {
+        const replierNames = [...new Set(replies.map(r => r.userName))].join(', ');
+        const firstAvatar = replies[0].userAvatar ? `<img src="${replies[0].userAvatar}">` : `<i class="fa-solid fa-user" style="font-size:12px; color:#00C853;"></i>`;
+        
+        let innerRepliesList = '';
+        replies.forEach((r, rIdx) => {
+          const rAvatar = r.userAvatar ? `<img src="${r.userAvatar}" alt="Profile">` : `<i class="fa-solid fa-user"></i>`;
+          const rLikesObj = commentLikesData[r.id] || {};
+          const rLikeCount = Object.keys(rLikesObj).length;
+          const rIsLiked = currentLoggedInUser && rLikesObj[currentLoggedInUser.name];
+          const rNum = `${numLabel}.${rIdx + 1}`;
+
+          innerRepliesList += `
+            <div class="reply-item">
+              <div class="comment-header-row">
+                <div class="comment-user-info">
+                  <span class="comment-number-badge">#${rNum}</span>
+                  <div class="comment-avatar" onclick="openProfilePage('${r.userName}', '${r.userAvatar || ''}')">${rAvatar}</div>
+                  <div class="comment-username" onclick="openProfilePage('${r.userName}', '${r.userAvatar || ''}')">${r.userName}</div>
+                </div>
+              </div>
+              <div class="comment-text" style="padding-left:38px;">${r.text}</div>
+              <div class="comment-actions-bar" style="padding-left:38px;">
+                <button class="comment-action-btn ${rIsLiked ? 'liked' : ''}" onclick="toggleLikeComment(${r.id})">
+                  <i class="fa-solid fa-heart"></i> Like <span class="comment-like-count">${rLikeCount > 0 ? rLikeCount : ''}</span>
+                </button>
+                <button class="comment-action-btn reply-btn" onclick="setReplyTo(${c.id}, '${r.userName}', '${rNum}')">
+                  <i class="fa-solid fa-reply"></i> Reply
+                </button>
+              </div>
+            </div>
+          `;
+        });
+
+        repliesHTML = `
+          <div class="comment-replies-wrapper">
+            <button class="replies-toggle-btn" onclick="toggleCommentReplies(${c.id}, this)">
+              <div class="replies-toggle-avatars">${firstAvatar}</div>
+              <span>${replies.length} ${replies.length === 1 ? 'reply' : 'replies'} (${replierNames})</span>
+            </button>
+            <div class="comment-replies-container" id="repliesContainer_${c.id}">
+              ${innerRepliesList}
+            </div>
+          </div>
+        `;
+      }
+
+      item.innerHTML = `
+        <div class="comment-header-row">
+          <div class="comment-user-info">
+            <span class="comment-number-badge">#${numLabel}</span>
+            <div class="comment-avatar" onclick="openProfilePage('${c.userName}', '${c.userAvatar || ''}')">${avatarHTML}</div>
+            <div class="comment-username" onclick="openProfilePage('${c.userName}', '${c.userAvatar || ''}')">${c.userName}</div>
+          </div>
+        </div>
+        <div class="comment-text">${c.text}</div>
+        ${repliesHTML}
+        <div class="comment-actions-bar">
+          <button class="comment-action-btn ${isLiked ? 'liked' : ''}" onclick="toggleLikeComment(${c.id})">
+            <i class="fa-solid fa-heart"></i> Like <span class="comment-like-count">${likeCount > 0 ? likeCount : ''}</span>
+          </button>
+          <button class="comment-action-btn reply-btn" onclick="setReplyTo(${c.id}, '${c.userName}', '${numLabel}')">
+            <i class="fa-solid fa-reply"></i> Reply (#${numLabel})
+          </button>
+        </div>
+      `;
+
+      item.oncontextmenu = (e) => {
+        e.preventDefault();
+        openCommentActionModal(c);
+      };
+
+      return item;
+    }
+
+    function toggleCommentReplies(commentId, btn) {
+      const container = document.getElementById(`repliesContainer_${commentId}`);
+      if (container) {
+        const isHidden = container.style.display === 'none' || container.style.display === '';
+        container.style.display = isHidden ? 'flex' : 'none';
+      }
+    }
+
+    function toggleLikeComment(commentId) {
+      if (!currentLoggedInUser) {
+        alert("Please sign in first.");
+        return;
+      }
+      const userName = currentLoggedInUser.name;
+      const likeRef = db.ref(`texphone/commentLikes/${commentId}/${userName}`);
+      likeRef.once('value', snapshot => {
+        if (snapshot.exists()) {
+          likeRef.remove();
+        } else {
+          likeRef.set(true);
+        }
+      });
+    }
+
+    function setReplyTo(commentId, userName, commentNumber) {
+      replyingToCommentId = commentId;
+      const banner = document.getElementById('activeReplyBanner');
+      const bannerText = document.getElementById('replyBannerText');
+      bannerText.innerText = `Replying to #${commentNumber} (${userName})`;
+      banner.classList.add('active');
+      document.getElementById('commentInput').placeholder = `Reply to #${commentNumber} (${userName})...`;
+      document.getElementById('commentInput').focus();
+    }
+
+    function cancelReplyState() {
+      replyingToCommentId = null;
+      const banner = document.getElementById('activeReplyBanner');
+      banner.classList.remove('active');
+      document.getElementById('commentInput').placeholder = "Write a comment or send gift...";
+    }
+
+    function openCommentActionModal(commentObj) {
+      activeCommentIdForAction = commentObj.id;
+      activeCommentObjForAction = commentObj;
+      const isMine = commentObj.userName === currentLoggedInUser?.name;
+      document.getElementById('commentEditOptionBtn').style.display = isMine ? 'block' : 'none';
+      document.getElementById('commentDeleteOptionBtn').style.display = isMine ? 'block' : 'none';
+      if (!isMine) {
+        alert("You can only edit or delete your own comments.");
+        return;
+      }
+      document.getElementById('commentActionModal').classList.add('active');
+    }
+
+    function closeCommentActionModal() {
+      document.getElementById('commentActionModal').classList.remove('active');
+    }
+
+    function editSelectedComment() {
+      closeCommentActionModal();
+      if (!activeCommentObjForAction) return;
+      const newText = prompt("Edit comment:", activeCommentObjForAction.text || "");
+      if (newText !== null && newText.trim()) {
+        db.ref(`texphone/comments/${activeCommentIdForAction}/text`).set(newText.trim());
+      }
+    }
+
+    function deleteSelectedComment() {
+      closeCommentActionModal();
+      if (!activeCommentIdForAction) return;
+      db.ref(`texphone/comments/${activeCommentIdForAction}`).remove();
+    }
+
+    function renderTopGifters(postId) {
+      const bar = document.getElementById('topGiftersBar');
+      if (!bar) return;
+      bar.innerHTML = "";
+
+      const gifts = giftTransactions[postId] ? Object.values(giftTransactions[postId]) : [];
+      if (gifts.length === 0) {
+        bar.innerHTML = `<div style="font-size:12px; color:#888;">No gifts sent yet. Be the top gifter!</div>`;
+        return;
+      }
+
+      gifts.forEach(g => {
+        const item = document.createElement('div');
+        item.className = 'top-gifter-item';
+        const avatarHTML = g.avatar ? `<img src="${g.avatar}" alt="Gifter">` : `<i class="fa-solid fa-user"></i>`;
+        item.innerHTML = `
+          <div class="top-gifter-avatar" onclick="openProfilePage('${g.sender}', '${g.avatar || ''}')">${avatarHTML}</div>
+          <div class="top-gifter-name">${g.sender}</div>
+          <div style="font-size:11px;">${g.icon}</div>
+        `;
+        bar.appendChild(item);
+      });
+    }
+
+    function closeGenericPage(fromPop = false) {
+      document.getElementById('genericPage').classList.remove('active');
+    }
+  </script>
+</body>
+</html>
